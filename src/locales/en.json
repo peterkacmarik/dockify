@@ -1,0 +1,78 @@
+{
+    "common": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "logout": "Logout",
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success"
+    },
+    "auth": {
+        "login": "Login",
+        "register": "Register",
+        "forgotPassword": "Forgot Password",
+        "email": "Email",
+        "password": "Password",
+        "confirmPassword": "Confirm Password",
+        "signIn": "Sign In",
+        "signUp": "Sign Up",
+        "sendResetLink": "Send Reset Link",
+        "welcomeBack": "Welcome Back",
+        "createAccount": "Create Account",
+        "signInToContinue": "Sign in to continue to Dockify",
+        "joinDockify": "Join Dockify and start managing orders",
+        "enterResetEmail": "Enter your email to receive a reset link",
+        "dontHaveAccount": "Don't have an account?",
+        "alreadyHaveAccount": "Already have an account?",
+        "rememberPassword": "Remember your password?",
+        "enterEmail": "Enter your email",
+        "enterPassword": "Enter your password",
+        "createPassword": "Create a password",
+        "confirmYourPassword": "Confirm your password",
+        "loginFailed": "Login Failed",
+        "registrationFailed": "Registration Failed",
+        "checkEmail": "Check your email",
+        "resetLinkSent": "We have sent a password reset link to your email.",
+        "passwordsDontMatch": "Passwords don't match",
+        "invalidEmail": "Please enter a valid email",
+        "passwordTooShort": "Password must be at least 6 characters"
+    },
+    "tabs": {
+        "intake": "Intake",
+        "processing": "Processing",
+        "inventory": "Inventory",
+        "settings": "Settings"
+    },
+    "intake": {
+        "title": "Order Intake",
+        "subtitle": "Upload customer orders via Excel/CSV",
+        "uploadFile": "Upload File (Excel/CSV)",
+        "parsedItems": "Parsed Items",
+        "noItemsLoaded": "No items loaded",
+        "noDataToDisplay": "No data to display. Upload a file to get started.",
+        "quantity": "Qty",
+        "missingPartNumber": "Missing Part Number",
+        "invalidQuantity": "Invalid Quantity"
+    },
+    "processing": {
+        "title": "Order Processing Module",
+        "subtitle": "Part assignment and palletization flow."
+    },
+    "inventory": {
+        "title": "Inventory Module",
+        "subtitle": "Stock levels and cross-dock logic."
+    },
+    "settings": {
+        "title": "Settings",
+        "theme": "Theme",
+        "language": "Language",
+        "lightMode": "Light Mode",
+        "darkMode": "Dark Mode",
+        "switchThemes": "Switch between themes",
+        "selectLanguage": "Select your preferred language",
+        "signOut": "Sign out of your account",
+        "english": "English",
+        "slovak": "Slovenčina",
+        "czech": "Čeština"
+    }
+}

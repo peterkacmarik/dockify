@@ -1,0 +1,78 @@
+{
+    "common": {
+        "save": "Uložit",
+        "cancel": "Zrušit",
+        "logout": "Odhlásit se",
+        "loading": "Načítá se...",
+        "error": "Chyba",
+        "success": "Úspěch"
+    },
+    "auth": {
+        "login": "Přihlášení",
+        "register": "Registrace",
+        "forgotPassword": "Zapomenuté heslo",
+        "email": "Email",
+        "password": "Heslo",
+        "confirmPassword": "Potvrdit heslo",
+        "signIn": "Přihlásit se",
+        "signUp": "Registrovat se",
+        "sendResetLink": "Odeslat odkaz na obnovení",
+        "welcomeBack": "Vítejte zpět",
+        "createAccount": "Vytvořit účet",
+        "signInToContinue": "Přihlaste se pro pokračování do Dockify",
+        "joinDockify": "Připojte se k Dockify a začněte spravovat objednávky",
+        "enterResetEmail": "Zadejte svůj email pro přijetí odkazu na obnovení",
+        "dontHaveAccount": "Nemáte účet?",
+        "alreadyHaveAccount": "Již máte účet?",
+        "rememberPassword": "Pamatujete si heslo?",
+        "enterEmail": "Zadejte váš email",
+        "enterPassword": "Zadejte vaše heslo",
+        "createPassword": "Vytvořte heslo",
+        "confirmYourPassword": "Potvrďte vaše heslo",
+        "loginFailed": "Přihlášení selhalo",
+        "registrationFailed": "Registrace selhala",
+        "checkEmail": "Zkontrolujte email",
+        "resetLinkSent": "Odeslali jsme odkaz na obnovení hesla na váš email.",
+        "passwordsDontMatch": "Hesla se neshodují",
+        "invalidEmail": "Zadejte platný email",
+        "passwordTooShort": "Heslo musí mít alespoň 6 znaků"
+    },
+    "tabs": {
+        "intake": "Příjem",
+        "processing": "Zpracování",
+        "inventory": "Sklad",
+        "settings": "Nastavení"
+    },
+    "intake": {
+        "title": "Příjem objednávek",
+        "subtitle": "Nahrát objednávky zákazníků přes Excel/CSV",
+        "uploadFile": "Nahrát soubor (Excel/CSV)",
+        "parsedItems": "Zpracované položky",
+        "noItemsLoaded": "Žádné položky",
+        "noDataToDisplay": "Žádná data k zobrazení. Nahrajte soubor pro začátek.",
+        "quantity": "Mn.",
+        "missingPartNumber": "Chybí číslo dílu",
+        "invalidQuantity": "Neplatné množství"
+    },
+    "processing": {
+        "title": "Modul zpracování objednávek",
+        "subtitle": "Přiřazení dílů a paletizace."
+    },
+    "inventory": {
+        "title": "Modul skladu",
+        "subtitle": "Úrovně zásob a cross-dock logika."
+    },
+    "settings": {
+        "title": "Nastavení",
+        "theme": "Téma",
+        "language": "Jazyk",
+        "lightMode": "Světlý režim",
+        "darkMode": "Tmavý režim",
+        "switchThemes": "Přepínání mezi tématy",
+        "selectLanguage": "Vyberte preferovaný jazyk",
+        "signOut": "Odhlásit se z účtu",
+        "english": "English",
+        "slovak": "Slovenčina",
+        "czech": "Čeština"
+    }
+}
