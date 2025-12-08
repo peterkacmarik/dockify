@@ -23,6 +23,9 @@ export const performGoogleLogin = async () => {
             options: {
                 redirectTo,
                 skipBrowserRedirect: true,
+                queryParams: {
+                    prompt: 'select_account',
+                },
             },
         });
 
