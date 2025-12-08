@@ -130,8 +130,18 @@ export default function OrderIntakeScreen() {
                 </View>
             </View>
 
-            <View style={{ marginTop: 16 }}>
+
+            <View style={{ marginTop: 16, gap: 12 }}>
                 <Button title={t('intake.mapColumns')} onPress={startMapping} />
+                <Button
+                    title={t('common.cancel')}
+                    variant="outline"
+                    onPress={() => {
+                        setParseResult(null);
+                        setFinalItems([]);
+                        setValidationErrors({});
+                    }}
+                />
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 16 }]}>{t('intake.detectedColumns')}</Text>
