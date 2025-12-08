@@ -4,34 +4,106 @@ import * as SecureStore from 'expo-secure-store'
 import { AppState, Platform } from 'react-native'
 import 'react-native-url-polyfill/auto'
 
-// Supabase adapter for SecureStore (for persistence)
-const ExpoSecureStoreAdapter = {
-    getItem: (key: string) => {
+// Custom Storage Adapter to handle large values (>2048 bytes) in SecureStore
+// by splitting them into chunks.
+const LargeSecureStore = {
+    getItem: async (key: string) => {
+        // Web fallback
         if (Platform.OS === 'web') {
-            return AsyncStorage.getItem(key)
+            return AsyncStorage.getItem(key);
         }
-        return SecureStore.getItemAsync(key)
+
+        const value = await SecureStore.getItemAsync(key);
+        if (!value) return null;
+
+        // Check if value indicates chunked data
+        if (value.startsWith('{"__isChunked":true')) {
+            try {
+                const metadata = JSON.parse(value);
+                if (metadata.__isChunked && typeof metadata.chunkCount === 'number') {
+                    let fullValue = '';
+                    for (let i = 0; i < metadata.chunkCount; i++) {
+                        const chunkKey = `${key}_chunk_${i}`;
+                        const chunk = await SecureStore.getItemAsync(chunkKey);
+                        if (chunk) {
+                            fullValue += chunk;
+                        } else {
+                            // Missing chunk, data corrupted
+                            return null;
+                        }
+                    }
+                    return fullValue;
+                }
+            } catch (e) {
+                console.warn('Failed to parse chunk metadata', e);
+            }
+        }
+
+        // Return original value if not chunked
+        return value;
     },
-    setItem: (key: string, value: string) => {
+
+    setItem: async (key: string, value: string) => {
+        // Web fallback
         if (Platform.OS === 'web') {
-            return AsyncStorage.setItem(key, value)
+            return AsyncStorage.setItem(key, value);
         }
-        return SecureStore.setItemAsync(key, value)
+
+        // Limit is technically 2048 bytes, use 2000 safety margin
+        const MAX_SIZE = 2000;
+
+        if (value.length <= MAX_SIZE) {
+            // If overriding a previously chunked value, strictly we should clean up.
+            // But for simplicity/performance in this fix, we just overwrite the main key.
+            return SecureStore.setItemAsync(key, value);
+        }
+
+        const chunkCount = Math.ceil(value.length / MAX_SIZE);
+
+        // Store chunks
+        const chunkPromises = [];
+        for (let i = 0; i < chunkCount; i++) {
+            const chunk = value.slice(i * MAX_SIZE, (i + 1) * MAX_SIZE);
+            chunkPromises.push(SecureStore.setItemAsync(`${key}_chunk_${i}`, chunk));
+        }
+        await Promise.all(chunkPromises);
+
+        // Store metadata
+        const metadata = JSON.stringify({ __isChunked: true, chunkCount });
+        return SecureStore.setItemAsync(key, metadata);
     },
-    removeItem: (key: string) => {
+
+    removeItem: async (key: string) => {
+        // Web fallback
         if (Platform.OS === 'web') {
-            return AsyncStorage.removeItem(key)
+            return AsyncStorage.removeItem(key);
         }
-        return SecureStore.deleteItemAsync(key)
+
+        // Check if chunks exist to clean up
+        const value = await SecureStore.getItemAsync(key);
+        try {
+            if (value && value.startsWith('{"__isChunked":true')) {
+                const metadata = JSON.parse(value);
+                if (metadata.chunkCount) {
+                    const promises = [];
+                    for (let i = 0; i < metadata.chunkCount; i++) {
+                        promises.push(SecureStore.deleteItemAsync(`${key}_chunk_${i}`));
+                    }
+                    await Promise.all(promises);
+                }
+            }
+        } catch (e) { }
+
+        return SecureStore.deleteItemAsync(key);
     },
-}
+};
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-        storage: ExpoSecureStoreAdapter,
+        storage: LargeSecureStore,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
