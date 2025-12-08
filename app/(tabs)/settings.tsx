@@ -1,7 +1,7 @@
 import { ChevronDown, Languages, LogOut, Moon, Sun } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { changeLanguage } from '../../src/lib/i18n';
@@ -18,11 +18,38 @@ export default function SettingsScreen() {
     const { theme, toggleTheme, colors } = useTheme();
     const isDark = theme === 'dark';
     const [languageModalVisible, setLanguageModalVisible] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const currentLanguage = LANGUAGES.find(lang => lang.code === i18n.language) || LANGUAGES[1];
 
     const onLogout = async () => {
-        await supabase.auth.signOut();
+        if (isLoggingOut) return;
+
+        Alert.alert(
+            t('common.logout'),
+            t('settings.logoutConfirmation', 'Are you sure you want to log out?'),
+            [
+                {
+                    text: t('common.cancel'),
+                    style: 'cancel'
+                },
+                {
+                    text: t('common.logout'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setIsLoggingOut(true);
+                            const { error } = await supabase.auth.signOut();
+                            if (error) throw error;
+                            // Navigation is handled by auth state listener in _layout
+                        } catch (error: any) {
+                            Alert.alert('Logout Error', error.message);
+                            setIsLoggingOut(false);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const handleLanguageChange = async (languageCode: string) => {
@@ -85,8 +112,14 @@ export default function SettingsScreen() {
 
                 {/* Logout Card */}
                 <TouchableOpacity
-                    style={[styles.card, styles.logoutCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    style={[
+                        styles.card,
+                        styles.logoutCard,
+                        { backgroundColor: colors.card, borderColor: colors.border },
+                        isLoggingOut && { opacity: 0.7 }
+                    ]}
                     onPress={onLogout}
+                    disabled={isLoggingOut}
                 >
                     <View style={styles.cardRow}>
                         <View style={styles.cardLeft}>
