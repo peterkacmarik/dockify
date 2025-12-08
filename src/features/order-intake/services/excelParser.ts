@@ -52,16 +52,12 @@ export interface ExcelParseResult {
     overall_confidence: number;
     actions: MappingAction[];
     warnings: RowWarning[];
-    ai_enhanced?: boolean;
 }
 
 // --- Configuration ---
 
-import { analyzeWithLLM } from './llmParser';
-
 const SAMPLE_ROW_COUNT = 5;
 const ANALYSIS_ROW_LIMIT = 200;
-const CONFIDENCE_THRESHOLD_LLM = 0.75;
 
 interface FieldConfig {
     keywords: string[];
@@ -86,7 +82,7 @@ const KNOWN_FIELDS: Record<string, FieldConfig> = {
 
 // --- Main Function ---
 
-export const pickAndParseExcel = async (useLLM: boolean = true): Promise<ExcelParseResult | null> => {
+export const pickAndParseExcel = async (): Promise<ExcelParseResult | null> => {
     try {
         const result = await DocumentPicker.getDocumentAsync({
             type: [
@@ -128,32 +124,7 @@ export const pickAndParseExcel = async (useLLM: boolean = true): Promise<ExcelPa
             throw new Error('Empty file');
         }
 
-        let parseResult = analyzeFile(rawData, globalInferences);
-
-        // --- LLM Fallback (if enabled) ---
-        if (useLLM && parseResult.overall_confidence < CONFIDENCE_THRESHOLD_LLM) {
-            console.log('Low confidence detected, triggering LLM analysis...');
-            try {
-                const llmResult = await analyzeWithLLM(parseResult.file_summary);
-                if (llmResult.detected_columns && llmResult.detected_columns.length > 0) {
-                    // Merge: Overwrite detected columns and confidence
-                    parseResult.detected_columns = llmResult.detected_columns;
-                    parseResult.overall_confidence = llmResult.overall_confidence || parseResult.overall_confidence;
-                    parseResult.ai_enhanced = true;
-
-                    // Re-generate actions based on new columns
-                    const mapping: Record<string, number> = {};
-                    parseResult.detected_columns.forEach(col => {
-                        if (col.suggested_field && col.confidence > 0.4) {
-                            mapping[col.suggested_field] = col.column_index;
-                        }
-                    });
-                    parseResult.actions = [{ type: 'apply_mapping', mapping }];
-                }
-            } catch (llmError) {
-                console.warn('LLM fallback failed, keeping rule-based result', llmError);
-            }
-        }
+        const parseResult = analyzeFile(rawData, globalInferences);
 
         return parseResult;
 

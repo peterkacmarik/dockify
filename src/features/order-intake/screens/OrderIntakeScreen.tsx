@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../../components/ui/Button';
@@ -22,13 +22,12 @@ export default function OrderIntakeScreen() {
     const [loading, setLoading] = useState(false);
     const [processingMapping, setProcessingMapping] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const [useLLM, setUseLLM] = useState(false); // LLM toggle - default OFF
     const ITEMS_PER_PAGE = 50;
 
     const handleUpload = async () => {
         setLoading(true);
         try {
-            const parsedData = await pickAndParseExcel(useLLM);
+            const parsedData = await pickAndParseExcel();
             if (parsedData) {
                 setParseResult(parsedData);
                 // Reset items when fresh analysis comes in
@@ -123,9 +122,6 @@ export default function OrderIntakeScreen() {
                 <Text style={{ color: colors.text, marginTop: 4 }}>{t('intake.confidence')}: {(data.overall_confidence * 100).toFixed(0)}%</Text>
 
                 <View style={styles.badgeContainer}>
-                    {data.ai_enhanced && (
-                        <View style={[styles.badge, { backgroundColor: '#9c27b0', marginRight: 8 }]}><Text style={styles.badgeText}>✨ AI Enhanced</Text></View>
-                    )}
                     {data.overall_confidence > 0.8 ? (
                         <View style={[styles.badge, { backgroundColor: '#4caf50' }]}><Text style={styles.badgeText}>{t('intake.highConfidence')}</Text></View>
                     ) : (
@@ -186,35 +182,7 @@ export default function OrderIntakeScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom', 'left', 'right']}>
             <View style={styles.header}>
-                <View>
-                    <Text style={[styles.title, { color: colors.text }]}>{t('intake.title')}</Text>
-                    {/* <Text style={[styles.subtitle, { color: colors.textSecondary }]}>AI Agent Import</Text> */}
-                </View>
-
-                {/* LLM Toggle */}
-                <TouchableOpacity
-                    style={[styles.toggleContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => setUseLLM(!useLLM)}
-                    activeOpacity={0.7}
-                >
-                    <Ionicons
-                        name={useLLM ? "sparkles" : "sparkles-outline"}
-                        size={20}
-                        color={useLLM ? colors.primary : colors.textSecondary}
-                    />
-                    <Text style={[styles.toggleLabel, { color: useLLM ? colors.primary : colors.textSecondary }]}>
-                        AI Analýza
-                    </Text>
-                    <View style={[
-                        styles.toggleSwitch,
-                        { backgroundColor: useLLM ? colors.primary : colors.border }
-                    ]}>
-                        <View style={[
-                            styles.toggleThumb,
-                            { transform: [{ translateX: useLLM ? 14 : 0 }] }
-                        ]} />
-                    </View>
-                </TouchableOpacity>
+                <Text style={[styles.title, { color: colors.text }]}>{t('intake.title')}</Text>
             </View>
 
             {!isMapping && !parseResult && finalItems.length === 0 && (
@@ -428,32 +396,5 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    toggleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        gap: 8,
-        marginTop: 16,
-    },
-    toggleLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    toggleSwitch: {
-        width: 36,
-        height: 20,
-        borderRadius: 10,
-        padding: 2,
-        justifyContent: 'center',
-    },
-    toggleThumb: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#fff',
     },
 });

@@ -8,7 +8,7 @@
 - **🔐 Autentifikácia** - Google OAuth 2.0 cez Supabase Auth
 - **📊 Excel Understanding Agent** - Inteligentné spracovanie Excel/CSV súborov
   - Automatická detekcia stĺpcov (SKU, množstvo, popis, cena)
-  - Pravidlová analýza + voliteľný Gemini LLM fallback
+  - Pravidlová analýza s fuzzy matching
   - Manuálne mapovanie stĺpcov s ukladaním šablón
   - Data cleaning & validácia (SKU formát, rozsahy, duplicity)
   - Paginácia pre veľké datasety (10 000+ riadkov)
@@ -25,7 +25,6 @@
 
 - **Frontend**: React Native (Expo SDK 52)
 - **Backend**: Supabase (PostgreSQL, Auth, Storage)
-- **AI**: Google Gemini 2.0 Flash (voliteľné)
 - **Navigácia**: Expo Router (file-based)
 - **State**: React Query + Zustand
 - **Styling**: React Native StyleSheet
@@ -58,7 +57,6 @@
    ```env
    EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
    EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   EXPO_PUBLIC_GEMINI_API_KEY=your_gemini_api_key  # Voliteľné
    ```
 
 4. **Spustite vývojový server**
@@ -110,10 +108,6 @@ dockify/
 3. Nastavte Redirect URL: `exp://localhost:8081/auth/callback`
 4. Skopírujte URL a Anon Key do `.env`
 
-### Gemini API (Voliteľné)
-1. Získajte API kľúč na [ai.google.dev](https://ai.google.dev)
-2. Pridajte do `.env` ako `EXPO_PUBLIC_GEMINI_API_KEY`
-3. Zapnite AI analýzu v aplikácii pomocou prepínača ✨
 
 ## 📝 Skripty
 
@@ -147,4 +141,3 @@ Tento projekt je licencovaný pod MIT licenciou.
 
 - [Expo](https://expo.dev) - React Native framework
 - [Supabase](https://supabase.com) - Backend as a Service
-- [Google Gemini](https://ai.google.dev) - LLM API
