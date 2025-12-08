@@ -117,6 +117,7 @@ export default function OrderIntakeScreen() {
         try {
             setLoading(true);
             await exportToExcel(finalItems);
+            alert('Excel súbor úspešne vyexportovaný!');
             // Reset after successful export
             setFinalItems([]);
             setValidationErrors({});
@@ -298,110 +299,166 @@ export default function OrderIntakeScreen() {
                                                 onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                                 disabled={currentPage === totalPages}
                                                 variant="outline"
-                        <View style={styles.emptyState}>
-                                                <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
-                                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                                                    {t('intake.noDataToDisplay')}
-                                                </Text>
-                                            </View>
-                                            )
-                )}
+                                                size="sm"
+                                            />
                                         </View>
-        </SafeAreaView >
+                                    )}
+
+                                    <View style={{ marginTop: 24, paddingBottom: 32, gap: 12 }}>
+                                        {showExportOptions ? (
+                                            <>
+                                                <Text style={[styles.sectionTitle, { color: colors.text, textAlign: 'center' }]}>
+                                                    ✅ Validácia úspešná!
+                                                </Text>
+                                                <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 8 }}>
+                                                    {finalItems.length} položiek pripravených. Vyberte formát exportu:
+                                                </Text>
+                                                <Button
+                                                    title="📊 Exportovať do Excelu"
+                                                    onPress={handleExportToExcel}
+                                                    loading={loading}
+                                                />
+                                                <Button
+                                                    title="💾 Uložiť do databázy"
+                                                    variant="outline"
+                                                    onPress={handleExportToDatabase}
+                                                />
+                                                <Button
+                                                    title={t('common.cancel')}
+                                                    variant="outline"
+                                                    onPress={() => {
+                                                        setShowExportOptions(false);
+                                                        setFinalItems([]);
+                                                        setValidationErrors({});
+                                                    }}
+                                                    style={{ borderColor: colors.error }}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Button
+                                                    title={t('intake.confirmImport')}
+                                                    onPress={handleConfirmImport}
+                                                />
+                                                <Button
+                                                    title={t('intake.discard')}
+                                                    variant="outline"
+                                                    onPress={() => setFinalItems([])}
+                                                    style={{ borderColor: colors.error }}
+                                                />
+                                            </>
+                                        )}
+                                    </View>
+                                </>
+                            );
+                        })()}
+                    </ScrollView>
+                ) : (
+                    !loading && (
+                        <View style={styles.emptyState}>
+                            <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                {t('intake.noDataToDisplay')}
+                            </Text>
+                        </View>
+                    )
+                )}
+            </View>
+        </SafeAreaView>
     );
 }
 
-                        const styles = StyleSheet.create({
-                            container: {
-                            flex: 1,
-                        paddingHorizontal: 16,
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        paddingHorizontal: 16,
     },
-                        header: {
-                            marginTop: 16,
-                        marginBottom: 24,
+    header: {
+        marginTop: 16,
+        marginBottom: 24,
     },
-                        title: {
-                            fontSize: 24,
-                        fontWeight: '700',
+    title: {
+        fontSize: 24,
+        fontWeight: '700',
     },
-                        subtitle: {
-                            fontSize: 14,
-                        marginTop: 4,
+    subtitle: {
+        fontSize: 14,
+        marginTop: 4,
     },
-                        actions: {
-                            marginBottom: 16,
+    actions: {
+        marginBottom: 16,
     },
-                        content: {
-                            flex: 1,
+    content: {
+        flex: 1,
     },
-                        resultContainer: {
-                            flex: 1,
+    resultContainer: {
+        flex: 1,
     },
-                        card: {
-                            borderRadius: 8,
-                        padding: 16,
-                        borderWidth: 1,
-                        marginBottom: 8,
+    card: {
+        borderRadius: 8,
+        padding: 16,
+        borderWidth: 1,
+        marginBottom: 8,
     },
-                        cardTitle: {
-                            fontSize: 16,
-                        fontWeight: '600',
-                        marginBottom: 8,
+    cardTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
     },
-                        badgeContainer: {
-                            marginTop: 8,
-                        flexDirection: 'row',
+    badgeContainer: {
+        marginTop: 8,
+        flexDirection: 'row',
     },
-                        badge: {
-                            paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 4,
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
     },
-                        badgeText: {
-                            color: '#fff',
-                        fontSize: 12,
-                        fontWeight: '600',
+    badgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
     },
-                        sectionTitle: {
-                            fontSize: 16,
-                        fontWeight: '600',
-                        marginBottom: 8,
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 8,
     },
-                        columnCard: {
-                            padding: 12,
-                        marginBottom: 8,
-                        borderRadius: 4,
-                        borderLeftWidth: 4,
-                        elevation: 1,
+    columnCard: {
+        padding: 12,
+        marginBottom: 8,
+        borderRadius: 4,
+        borderLeftWidth: 4,
+        elevation: 1,
     },
-                        row: {
-                            flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
-                        colHeader: {
-                            fontSize: 14,
-                        fontWeight: '700',
+    colHeader: {
+        fontSize: 14,
+        fontWeight: '700',
     },
-                        colField: {
-                            fontSize: 14,
-                        fontWeight: '600',
+    colField: {
+        fontSize: 14,
+        fontWeight: '600',
     },
-                        colReason: {
-                            fontSize: 12,
-                        marginTop: 4,
+    colReason: {
+        fontSize: 12,
+        marginTop: 4,
     },
-                        emptyState: {
-                            alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 48,
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 48,
     },
-                        emptyText: {
-                            marginTop: 8,
+    emptyText: {
+        marginTop: 8,
     },
-                        paginationContainer: {
-                            flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+    paginationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });
