@@ -9,6 +9,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { ColumnMapper } from '../components/ColumnMapper';
 import { cleanOrderItem, validateBatch } from '../services/dataValidator';
 import { ExcelParseResult, LegacyParsedOrderItem, pickAndParseExcel } from '../services/excelParser';
+import { exportToExcel } from '../services/excelExporter';
 
 export default function OrderIntakeScreen() {
     const { t } = useTranslation();
@@ -22,6 +23,7 @@ export default function OrderIntakeScreen() {
     const [loading, setLoading] = useState(false);
     const [processingMapping, setProcessingMapping] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [showExportOptions, setShowExportOptions] = useState(false);
     const ITEMS_PER_PAGE = 50;
 
     const handleUpload = async () => {
@@ -107,11 +109,29 @@ export default function OrderIntakeScreen() {
             return;
         }
 
-        // All valid - success!
-        alert(`Import úspešný! ${validation.validItems.length} položiek pripravených.`);
-        // TODO: Save to Supabase here
-        setFinalItems([]);
-        setValidationErrors({});
+        // All valid - show export options
+        setShowExportOptions(true);
+    };
+
+    const handleExportToExcel = async () => {
+        try {
+            setLoading(true);
+            await exportToExcel(finalItems);
+            // Reset after successful export
+            setFinalItems([]);
+            setValidationErrors({});
+            setShowExportOptions(false);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Chyba pri exporte do Excelu');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleExportToDatabase = () => {
+        alert('Ukladanie do databázy bude dostupné čoskoro!');
+        // TODO: Implement Supabase integration
     };
 
     const renderAnalysis = (data: ExcelParseResult) => (
@@ -278,133 +298,110 @@ export default function OrderIntakeScreen() {
                                                 onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                                 disabled={currentPage === totalPages}
                                                 variant="outline"
-                                                size="sm"
-                                            />
-                                        </View>
-                                    )}
-
-                                    <View style={{ marginTop: 24, paddingBottom: 32, gap: 12 }}>
-                                        <Button
-                                            title={t('intake.confirmImport')}
-                                            onPress={handleConfirmImport}
-                                        />
-                                        <Button
-                                            title={t('intake.discard')}
-                                            variant="outline"
-                                            onPress={() => setFinalItems([])}
-                                            style={{ borderColor: colors.error }}
-                                        />
-                                    </View>
-                                </>
-                            );
-                        })()}
-                    </ScrollView>
-                ) : (
-                    !loading && (
                         <View style={styles.emptyState}>
-                            <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                                {t('intake.noDataToDisplay')}
-                            </Text>
-                        </View>
-                    )
+                                                <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
+                                                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                                                    {t('intake.noDataToDisplay')}
+                                                </Text>
+                                            </View>
+                                            )
                 )}
-            </View>
-        </SafeAreaView>
+                                        </View>
+        </SafeAreaView >
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        paddingHorizontal: 16,
+                        const styles = StyleSheet.create({
+                            container: {
+                            flex: 1,
+                        paddingHorizontal: 16,
     },
-    header: {
-        marginTop: 16,
-        marginBottom: 24,
+                        header: {
+                            marginTop: 16,
+                        marginBottom: 24,
     },
-    title: {
-        fontSize: 24,
-        fontWeight: '700',
+                        title: {
+                            fontSize: 24,
+                        fontWeight: '700',
     },
-    subtitle: {
-        fontSize: 14,
-        marginTop: 4,
+                        subtitle: {
+                            fontSize: 14,
+                        marginTop: 4,
     },
-    actions: {
-        marginBottom: 16,
+                        actions: {
+                            marginBottom: 16,
     },
-    content: {
-        flex: 1,
+                        content: {
+                            flex: 1,
     },
-    resultContainer: {
-        flex: 1,
+                        resultContainer: {
+                            flex: 1,
     },
-    card: {
-        borderRadius: 8,
-        padding: 16,
-        borderWidth: 1,
-        marginBottom: 8,
+                        card: {
+                            borderRadius: 8,
+                        padding: 16,
+                        borderWidth: 1,
+                        marginBottom: 8,
     },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
+                        cardTitle: {
+                            fontSize: 16,
+                        fontWeight: '600',
+                        marginBottom: 8,
     },
-    badgeContainer: {
-        marginTop: 8,
-        flexDirection: 'row',
+                        badgeContainer: {
+                            marginTop: 8,
+                        flexDirection: 'row',
     },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+                        badge: {
+                            paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 4,
     },
-    badgeText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
+                        badgeText: {
+                            color: '#fff',
+                        fontSize: 12,
+                        fontWeight: '600',
     },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
+                        sectionTitle: {
+                            fontSize: 16,
+                        fontWeight: '600',
+                        marginBottom: 8,
     },
-    columnCard: {
-        padding: 12,
-        marginBottom: 8,
-        borderRadius: 4,
-        borderLeftWidth: 4,
-        elevation: 1,
+                        columnCard: {
+                            padding: 12,
+                        marginBottom: 8,
+                        borderRadius: 4,
+                        borderLeftWidth: 4,
+                        elevation: 1,
     },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+                        row: {
+                            flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
     },
-    colHeader: {
-        fontSize: 14,
-        fontWeight: '700',
+                        colHeader: {
+                            fontSize: 14,
+                        fontWeight: '700',
     },
-    colField: {
-        fontSize: 14,
-        fontWeight: '600',
+                        colField: {
+                            fontSize: 14,
+                        fontWeight: '600',
     },
-    colReason: {
-        fontSize: 12,
-        marginTop: 4,
+                        colReason: {
+                            fontSize: 12,
+                        marginTop: 4,
     },
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 48,
+                        emptyState: {
+                            alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingVertical: 48,
     },
-    emptyText: {
-        marginTop: 8,
+                        emptyText: {
+                            marginTop: 8,
     },
-    paginationContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
+                        paginationContainer: {
+                            flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
     },
 });
