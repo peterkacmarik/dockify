@@ -1,50 +1,53 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { utils, write } from 'xlsx';
 import { LegacyParsedOrderItem } from './excelParser';
 
+const { StorageAccessFramework } = FileSystem;
+
+const generateExcelBase64 = (items: LegacyParsedOrderItem[]): string => {
+    const excelData = items.map(item => ({
+        'SKU': item.partNumber,
+        'Množstvo': item.quantity,
+        'Popis': item.description || '',
+        'Cena': item.price !== undefined ? item.price : '',
+    }));
+
+    const worksheet = utils.json_to_sheet(excelData);
+
+    // Set column widths
+    worksheet['!cols'] = [
+        { wch: 15 }, // SKU
+        { wch: 10 }, // Množstvo
+        { wch: 40 }, // Popis
+        { wch: 10 }, // Cena
+    ];
+
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, worksheet, 'Objednávka');
+
+    return write(workbook, { type: 'base64', bookType: 'xlsx' });
+};
+
+const getTimestampedFilename = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    return `objednavka_${timestamp}.xlsx`;
+};
+
 /**
- * Export validated order items to Excel file
+ * Share Excel file (opens system share dialog)
  */
 export const exportToExcel = async (items: LegacyParsedOrderItem[]): Promise<void> => {
     try {
-        // Prepare data for Excel
-        const excelData = items.map(item => ({
-            'SKU': item.partNumber,
-            'Množstvo': item.quantity,
-            'Popis': item.description || '',
-            'Cena': item.price !== undefined ? item.price : '',
-        }));
-
-        // Create worksheet
-        const worksheet = utils.json_to_sheet(excelData);
-
-        // Set column widths
-        worksheet['!cols'] = [
-            { wch: 15 }, // SKU
-            { wch: 10 }, // Množstvo
-            { wch: 40 }, // Popis
-            { wch: 10 }, // Cena
-        ];
-
-        // Create workbook
-        const workbook = utils.book_new();
-        utils.book_append_sheet(workbook, worksheet, 'Objednávka');
-
-        // Generate Excel file (base64)
-        const excelBuffer = write(workbook, { type: 'base64', bookType: 'xlsx' });
-
-        // Create filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = `objednavka_${timestamp}.xlsx`;
+        const excelBuffer = generateExcelBase64(items);
+        const filename = getTimestampedFilename();
         const fileUri = `${FileSystem.documentDirectory}${filename}`;
 
-        // Save file
         await FileSystem.writeAsStringAsync(fileUri, excelBuffer, {
             encoding: FileSystem.EncodingType.Base64,
         });
 
-        // Share file (allows user to save to Downloads, share via apps, etc.)
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
             await Sharing.shareAsync(fileUri, {
@@ -55,10 +58,44 @@ export const exportToExcel = async (items: LegacyParsedOrderItem[]): Promise<voi
         } else {
             throw new Error('Sharing is not available on this device');
         }
-
-        console.log('Excel file exported successfully:', fileUri);
     } catch (error) {
         console.error('Error exporting to Excel:', error);
+        throw error;
+    }
+};
+
+/**
+ * Save Excel file directly to device storage
+ * On Android: Uses StorageAccessFramework to ask user for folder
+ * On iOS: Falls back to Share (which has Save to Files)
+ */
+export const saveToDevice = async (items: LegacyParsedOrderItem[]): Promise<boolean> => {
+    try {
+        if (Platform.OS === 'android') {
+            const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+            if (!permissions.granted) return false;
+
+            const excelBuffer = generateExcelBase64(items);
+            const filename = getTimestampedFilename();
+
+            // Create file in selected directory
+            const uri = await StorageAccessFramework.createFileAsync(
+                permissions.directoryUri,
+                filename,
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+
+            await FileSystem.writeAsStringAsync(uri, excelBuffer, {
+                encoding: FileSystem.EncodingType.Base64
+            });
+            return true;
+        } else {
+            // iOS fallback
+            await exportToExcel(items);
+            return true;
+        }
+    } catch (error) {
+        console.error('Error saving to device:', error);
         throw error;
     }
 };

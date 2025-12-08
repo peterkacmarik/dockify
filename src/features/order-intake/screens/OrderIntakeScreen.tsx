@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../../components/ui/Button';
@@ -9,7 +9,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { ColumnMapper } from '../components/ColumnMapper';
 import { cleanOrderItem, validateBatch } from '../services/dataValidator';
 import { ExcelParseResult, LegacyParsedOrderItem, pickAndParseExcel } from '../services/excelParser';
-import { exportToExcel } from '../services/excelExporter';
+import { exportToExcel, saveToDevice } from '../services/excelExporter';
 
 export default function OrderIntakeScreen() {
     const { t } = useTranslation();
@@ -125,6 +125,25 @@ export default function OrderIntakeScreen() {
         } catch (error) {
             console.error('Export error:', error);
             alert('Chyba pri exporte do Excelu');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveToDevice = async () => {
+        try {
+            setLoading(true);
+            const success = await saveToDevice(finalItems);
+            if (success) {
+                alert('Súbor bol úspešne uložený!');
+                // Reset after successful save
+                setFinalItems([]);
+                setValidationErrors({});
+                setShowExportOptions(false);
+            }
+        } catch (error) {
+            console.error('Save error:', error);
+            alert('Chyba pri ukladaní súboru');
         } finally {
             setLoading(false);
         }
@@ -314,10 +333,17 @@ export default function OrderIntakeScreen() {
                                                     {finalItems.length} položiek pripravených. Vyberte formát exportu:
                                                 </Text>
                                                 <Button
-                                                    title="📊 Exportovať do Excelu"
+                                                    title="📊 Exportovať do Excelu (Zdieľať)"
                                                     onPress={handleExportToExcel}
                                                     loading={loading}
                                                 />
+                                                {Platform.OS === 'android' && (
+                                                    <Button
+                                                        title="📥 Uložiť do zariadenia"
+                                                        onPress={handleSaveToDevice}
+                                                        loading={loading}
+                                                    />
+                                                )}
                                                 <Button
                                                     title="💾 Uložiť do databázy"
                                                     variant="outline"
