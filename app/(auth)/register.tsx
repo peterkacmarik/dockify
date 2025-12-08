@@ -4,7 +4,7 @@ import { Link, router } from 'expo-router';
 import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 
@@ -50,27 +50,28 @@ export default function RegisterScreen() {
 
         if (error) {
             Alert.alert(t('auth.registrationFailed'), error.message);
+            setLoading(false);
         } else {
             Alert.alert(t('common.success'), t('auth.checkEmail'));
             router.replace('/(auth)/login');
+            // Keep loading true
         }
-        setLoading(false);
     };
 
     const onGoogleSignIn = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
             const session = await performGoogleLogin();
             if (session) {
                 router.replace('/');
+                return; // Keep loading true
             }
         } catch (error: any) {
             if (error) {
                 Alert.alert('Google Login Error', error.message || 'Unknown error');
             }
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const gradientColors = isDark
@@ -191,6 +192,12 @@ export default function RegisterScreen() {
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>
+            {loading && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="large" color="#ffffff" />
+                    <Text style={styles.loadingText}>{t('common.loading', 'Loading...')}</Text>
+                </View>
+            )}
         </LinearGradient>
     );
 }
@@ -258,5 +265,18 @@ const styles = StyleSheet.create({
     signInText: {
         fontWeight: '700',
         fontSize: 15,
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+    },
+    loadingText: {
+        color: '#FFFFFF',
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
