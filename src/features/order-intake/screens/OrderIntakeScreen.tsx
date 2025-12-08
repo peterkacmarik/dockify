@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View, Platform, Alert } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../../components/ui/Button';
@@ -10,8 +10,7 @@ import { ColumnMapper } from '../components/ColumnMapper';
 import { cleanOrderItem, validateBatch } from '../services/dataValidator';
 import { ExcelParseResult, LegacyParsedOrderItem, pickAndParseExcel } from '../services/excelParser';
 import { exportToExcel, saveToDevice } from '../services/excelExporter';
-
-type IntakeStep = 'upload' | 'mapping' | 'preview';
+import { IntakeStepper, IntakeStep } from '../components/IntakeStepper';
 
 export default function OrderIntakeScreen() {
     const { t } = useTranslation();
@@ -20,6 +19,8 @@ export default function OrderIntakeScreen() {
     // States
     const [currentStep, setCurrentStep] = useState<IntakeStep>('upload');
     const [parseResult, setParseResult] = useState<ExcelParseResult | null>(null);
+    const [currentMapping, setCurrentMapping] = useState<Record<number, string>>({});
+
     const [finalItems, setFinalItems] = useState<LegacyParsedOrderItem[]>([]);
     const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({});
     const [loading, setLoading] = useState(false);
@@ -27,13 +28,25 @@ export default function OrderIntakeScreen() {
     const [currentPage, setCurrentPage] = useState(1);
     const [showExportOptions, setShowExportOptions] = useState(false);
 
-    // Maintain current mapping to allow "Back" functionality to pre-fill
-    // (This would require modifying ColumnMapper to accept initialMapping, skipping for now as 'Back' just re-shows mapper)
-
     const ITEMS_PER_PAGE = 50;
+
+    // Initialize mapping when parseResult changes (moved from ColumnMapper)
+    useEffect(() => {
+        if (parseResult && parseResult.actions.length > 0 && parseResult.actions[0].type === 'apply_mapping') {
+            const suggested = parseResult.actions[0].mapping;
+            const init: Record<number, string> = {};
+            Object.entries(suggested).forEach(([field, index]) => {
+                init[index] = field;
+            });
+            setCurrentMapping(init);
+        } else {
+            setCurrentMapping({});
+        }
+    }, [parseResult]);
 
     const resetFlow = () => {
         setParseResult(null);
+        setCurrentMapping({});
         setFinalItems([]);
         setValidationErrors({});
         setShowExportOptions(false);
@@ -52,30 +65,50 @@ export default function OrderIntakeScreen() {
             }
         } catch (error: any) {
             console.error(error);
+            Alert.alert(t('common.error'), t('intake.uploadError'));
         } finally {
             setLoading(false);
         }
     };
 
-    const handleApplyMapping = async (mapping: Record<string, number>) => {
+    const handleApplyMapping = async (mapping: Record<string, number> | Record<number, string>) => {
         if (!parseResult) return;
+
+        // If mapping is from state (Record<number, string>), convert it to Record<string, number>
+        // But the mapping argument here depends on how we call it.
+        // Let's normalize inside.
+
+        // Convert number->string map to string->number map for processing
+        // We rely on currentMapping state mostly, but allow arg.
+
+        const fields = Object.values(currentMapping);
+        if (!fields.includes('sku') || !fields.includes('quantity')) {
+            Alert.alert('Chyba', t('intake.mappingErrorDesc'));
+            return;
+        }
 
         setProcessingMapping(true);
 
-        // Use setTimeout to allow UI to show loading state
+        // Usage of setTimeout to allow UI update
         setTimeout(() => {
             try {
-                // Transform Raw Data -> Items (use ALL rows, not just samples)
+                // Convert index->field back to field->index
+                const finalMapping: Record<string, number> = {};
+                Object.entries(currentMapping).forEach(([indexStr, field]) => {
+                    finalMapping[field] = Number(indexStr);
+                });
+
+                // Transform Raw Data -> Items
                 const { file_summary } = parseResult;
 
                 const transformed: LegacyParsedOrderItem[] = file_summary.all_rows.map((row, i) => {
-                    const qtyVal = row[mapping['quantity']];
-                    const description = mapping['description'] !== undefined ? row[mapping['description']] : '';
-                    const price = mapping['price'] !== undefined ? Number(row[mapping['price']]) : undefined;
+                    const qtyVal = row[finalMapping['quantity']];
+                    const description = finalMapping['description'] !== undefined ? row[finalMapping['description']] : '';
+                    const price = finalMapping['price'] !== undefined ? Number(row[finalMapping['price']]) : undefined;
 
                     return {
-                        partNumber: row[mapping['sku']] || '',
-                        quantity: qtyVal as any, // Will be cleaned to number
+                        partNumber: row[finalMapping['sku']] || '',
+                        quantity: qtyVal as any,
                         description: description || '',
                         price: price,
                         isValid: true,
@@ -83,17 +116,17 @@ export default function OrderIntakeScreen() {
                     };
                 });
 
-                // Clean all items immediately
+                // Clean items
                 const cleanedItems = transformed.map(cleanOrderItem);
 
                 setFinalItems(cleanedItems);
                 setValidationErrors({});
                 setCurrentPage(1); // Reset to first page
                 setCurrentStep('preview');
-                // WE DO NOT NULLIFY parseResult HERE so we can go back
+
             } catch (error) {
                 console.error('Mapping processing error:', error);
-                alert('Chyba pri spracovaní dát');
+                Alert.alert(t('common.error'), 'Chyba pri spracovaní dát');
             } finally {
                 setProcessingMapping(false);
             }
@@ -105,7 +138,7 @@ export default function OrderIntakeScreen() {
 
         // Check for duplicates
         if (validation.duplicates.length > 0) {
-            alert(`Upozornenie: Duplicitné SKU: ${validation.duplicates.join(', ')}`);
+            Alert.alert(`Upozornenie: Duplicitné SKU: ${validation.duplicates.join(', ')}`);
         }
 
         // If there are invalid items, show errors
@@ -115,7 +148,7 @@ export default function OrderIntakeScreen() {
                 errors[index] = itemErrors;
             });
             setValidationErrors(errors);
-            alert(`Našli sa ${validation.invalidItems.length} chyby. Opravte ich prosím.`);
+            Alert.alert('Chyby v dátach', `Našli sa ${validation.invalidItems.length} chyby. Opravte ich prosím.`);
             return;
         }
 
@@ -128,11 +161,9 @@ export default function OrderIntakeScreen() {
             setLoading(true);
             await exportToExcel(finalItems);
             Alert.alert('Success', 'Excel súbor úspešne vyexportovaný!');
-            // DO NOT RESET FLOW AUTOMATICALLY
-            // User stays on screen
         } catch (error) {
             console.error('Export error:', error);
-            alert('Chyba pri exporte do Excelu');
+            Alert.alert('Chyba', 'Chyba pri exporte do Excelu');
         } finally {
             setLoading(false);
         }
@@ -144,18 +175,17 @@ export default function OrderIntakeScreen() {
             const success = await saveToDevice(finalItems);
             if (success) {
                 Alert.alert('Success', 'Súbor bol úspešne uložený!');
-                // DO NOT RESET FLOW AUTOMATICALLY
             }
         } catch (error) {
             console.error('Save error:', error);
-            alert('Chyba pri ukladaní súboru');
+            Alert.alert('Chyba', 'Chyba pri ukladaní súboru');
         } finally {
             setLoading(false);
         }
     };
 
     const handleExportToDatabase = () => {
-        alert('Ukladanie do databázy bude dostupné čoskoro!');
+        Alert.alert('Info', 'Ukladanie do databázy bude dostupné čoskoro!');
         // TODO: Implement Supabase integration
     };
 
@@ -165,23 +195,25 @@ export default function OrderIntakeScreen() {
 
         return (
             <View key={index} style={[
-                styles.card,
+                styles.itemCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
-                hasErrors && { borderColor: colors.error, borderWidth: 2, backgroundColor: colors.error + '10' }
+                hasErrors && { borderColor: colors.error, borderWidth: 1, backgroundColor: colors.error + '08' }
             ]}>
-                <View style={styles.row}>
-                    <Text style={[styles.colHeader, { color: hasErrors ? colors.error : colors.text }]}>{item.partNumber}</Text>
-                    <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{item.quantity} ks</Text>
+                <View style={styles.itemHeader}>
+                    <Text style={[styles.itemSku, { color: hasErrors ? colors.error : colors.text }]}>{item.partNumber}</Text>
+                    <View style={[styles.qtyBadge, { backgroundColor: colors.primary + '20' }]}>
+                        <Text style={[styles.qtyText, { color: colors.primary }]}>{item.quantity} ks</Text>
+                    </View>
                 </View>
-                <Text style={{ color: colors.textSecondary }}>{item.description}</Text>
+                {item.description ? <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={1}>{item.description}</Text> : null}
                 {item.price !== undefined && (
-                    <Text style={{ color: colors.text, marginTop: 4, fontSize: 14, fontWeight: '600' }}>Cena: €{item.price.toFixed(2)}</Text>
+                    <Text style={{ color: colors.text, marginTop: 4, fontSize: 13, fontWeight: '600' }}>€{item.price.toFixed(2)}</Text>
                 )}
 
                 {hasErrors && (
-                    <View style={{ marginTop: 8, padding: 8, backgroundColor: colors.error + '20', borderRadius: 4 }}>
+                    <View style={styles.errorList}>
                         {itemErrors.map((error, idx) => (
-                            <Text key={idx} style={{ color: colors.error, fontSize: 12 }}>• {error}</Text>
+                            <Text key={idx} style={[styles.errorText, { color: colors.error }]}>• {error}</Text>
                         ))}
                     </View>
                 )}
@@ -190,180 +222,143 @@ export default function OrderIntakeScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom', 'left', 'right']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
+
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>{t('intake.title')}</Text>
+                <Text style={[styles.screenTitle, { color: colors.text }]}>{t('intake.title')}</Text>
             </View>
 
-            {currentStep === 'upload' && (
-                <View style={styles.actions}>
-                    <Button
-                        title={t('intake.uploadFile')}
-                        onPress={handleUpload}
-                        loading={loading}
-                    />
-                </View>
-            )}
+            <IntakeStepper currentStep={currentStep} />
 
             <View style={styles.content}>
-                {currentStep === 'mapping' && parseResult ? (
-                    <ColumnMapper
-                        parseResult={parseResult}
-                        onApply={handleApplyMapping}
-                        onCancel={resetFlow}
-                    />
-                ) : currentStep === 'preview' && finalItems.length > 0 ? (
-                    <ScrollView>
-                        {(() => {
-                            const totalPages = Math.ceil(finalItems.length / ITEMS_PER_PAGE);
-                            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-                            const endIndex = startIndex + ITEMS_PER_PAGE;
-                            const currentItems = finalItems.slice(startIndex, endIndex);
 
-                            return (
-                                <>
-                                    <View style={styles.row}>
-                                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                                            {t('intake.parsedItems')} ({finalItems.length})
-                                        </Text>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
-                                            Strana {currentPage} z {totalPages}
-                                        </Text>
-                                    </View>
+                {/* STEP 1: UPLOAD */}
+                {currentStep === 'upload' && (
+                    <View style={styles.uploadContainer}>
+                        <TouchableOpacity
+                            style={[styles.uploadZone, { borderColor: colors.border, backgroundColor: colors.card }]}
+                            onPress={handleUpload}
+                            activeOpacity={0.8}
+                        >
+                            <View style={[styles.iconCircle, { backgroundColor: colors.primary + '15' }]}>
+                                <Ionicons name="cloud-upload" size={48} color={colors.primary} />
+                            </View>
+                            <Text style={[styles.uploadTitle, { color: colors.text }]}>{t('intake.uploadFile')}</Text>
+                            <Text style={[styles.uploadSubtitle, { color: colors.textSecondary }]}>.xls, .xlsx, .csv</Text>
 
-                                    {/* Pagination Controls - Top */}
-                                    {totalPages > 1 && (
-                                        <View style={[styles.paginationContainer, { marginBottom: 12 }]}>
-                                            <Button
-                                                title="◀"
-                                                onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                disabled={currentPage === 1}
-                                                variant="outline"
-                                                size="sm"
-                                                style={{ minWidth: 40 }}
-                                            />
-                                            <Text style={{ color: colors.text, marginHorizontal: 16 }}>
-                                                {startIndex + 1} - {Math.min(endIndex, finalItems.length)}
-                                            </Text>
-                                            <Button
-                                                title="▶"
-                                                onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                disabled={currentPage === totalPages}
-                                                variant="outline"
-                                                size="sm"
-                                                style={{ minWidth: 40 }}
-                                            />
-                                        </View>
-                                    )}
+                            {loading && (
+                                <Text style={{ color: colors.primary, marginTop: 16 }}>Spracovávam...</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
 
-                                    {currentItems.map((item, i) => renderFinalItem(item, startIndex + i))}
-
-                                    {/* Pagination Controls - Bottom */}
-                                    {totalPages > 1 && (
-                                        <View style={[styles.paginationContainer, { marginTop: 16 }]}>
-                                            <Button
-                                                title="◀ Predch."
-                                                onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                disabled={currentPage === 1}
-                                                variant="outline"
-                                                size="sm"
-                                            />
-                                            <Text style={{ color: colors.text, marginHorizontal: 16 }}>
-                                                {currentPage} / {totalPages}
-                                            </Text>
-                                            <Button
-                                                title="Ďalšia ▶"
-                                                onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                disabled={currentPage === totalPages}
-                                                variant="outline"
-                                                size="sm"
-                                                style={{ minWidth: 40 }}
-                                            />
-                                        </View>
-                                    )}
-
-                                    <View style={{ marginTop: 24, paddingBottom: 32, gap: 12 }}>
-                                        {showExportOptions ? (
-                                            <>
-                                                <Text style={[styles.sectionTitle, { color: colors.text, textAlign: 'center' }]}>
-                                                    ✅ Validácia úspešná!
-                                                </Text>
-                                                <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 8 }}>
-                                                    {finalItems.length} položiek pripravených. Vyberte formát exportu:
-                                                </Text>
-                                                <Button
-                                                    title="📊 Exportovať do Excelu (Zdieľať)"
-                                                    onPress={handleExportToExcel}
-                                                    loading={loading}
-                                                />
-                                                {Platform.OS === 'android' && (
-                                                    <Button
-                                                        title="📥 Uložiť do zariadenia"
-                                                        onPress={handleSaveToDevice}
-                                                        loading={loading}
-                                                    />
-                                                )}
-                                                <Button
-                                                    title="💾 Uložiť do databázy"
-                                                    variant="outline"
-                                                    onPress={handleExportToDatabase}
-                                                />
-                                                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
-                                                <Button
-                                                    title="✨ Dokončiť / Nový Import"
-                                                    variant="ghost"
-                                                    onPress={resetFlow}
-                                                    style={{ marginTop: 8 }}
-                                                />
-                                                <Button
-                                                    title={t('common.cancel')}
-                                                    variant="outline"
-                                                    onPress={() => setShowExportOptions(false)}
-                                                    style={{ borderColor: colors.border }}
-                                                />
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Button
-                                                    title={t('intake.confirmImport')}
-                                                    onPress={handleConfirmImport}
-                                                />
-                                                <View style={{ flexDirection: 'row', gap: 12 }}>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Button
-                                                            title="⬅ Späť na Mapovanie"
-                                                            variant="outline"
-                                                            onPress={() => {
-                                                                setCurrentStep('mapping');
-                                                                setShowExportOptions(false);
-                                                            }}
-                                                        />
-                                                    </View>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Button
-                                                            title={t('intake.discard')}
-                                                            variant="outline"
-                                                            onPress={resetFlow}
-                                                            style={{ borderColor: colors.error }}
-                                                        />
-                                                    </View>
-                                                </View>
-                                            </>
-                                        )}
-                                    </View>
-                                </>
-                            );
-                        })()}
-                    </ScrollView>
-                ) : (
-                    !loading && (
-                        <View style={styles.emptyState}>
-                            <Ionicons name="cloud-upload-outline" size={48} color={colors.textSecondary} />
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                                {t('intake.noDataToDisplay')}
-                            </Text>
+                {/* STEP 2: MAPPING */}
+                {currentStep === 'mapping' && parseResult && (
+                    <View style={{ flex: 1 }}>
+                        <ColumnMapper
+                            parseResult={parseResult}
+                            mapping={currentMapping}
+                            onChange={setCurrentMapping}
+                        />
+                        {/* Fixed Actions Footer for Mapping */}
+                        <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                <Button
+                                    title="Zrušiť"
+                                    variant="outline"
+                                    onPress={resetFlow}
+                                    style={{ flex: 1 }}
+                                />
+                                <Button
+                                    title="Použiť"
+                                    onPress={() => handleApplyMapping(currentMapping)}
+                                    style={{ flex: 2 }}
+                                    loading={processingMapping}
+                                />
+                            </View>
                         </View>
-                    )
+                    </View>
+                )}
+
+                {/* STEP 3: PREVIEW & EXPORT */}
+                {currentStep === 'preview' && finalItems.length > 0 && (
+                    <View style={{ flex: 1 }}>
+                        {/* Summary Dashboard */}
+                        <View style={[styles.dashboard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <View style={styles.dashItem}>
+                                <Text style={[styles.dashLabel, { color: colors.textSecondary }]}>Položiek</Text>
+                                <Text style={[styles.dashValue, { color: colors.text }]}>{finalItems.length}</Text>
+                            </View>
+                            <View style={styles.dashItem}>
+                                <Text style={[styles.dashLabel, { color: colors.textSecondary }]}>Chýb</Text>
+                                <Text style={[styles.dashValue, { color: Object.keys(validationErrors).length > 0 ? colors.error : '#4caf50' }]}>
+                                    {Object.keys(validationErrors).length}
+                                </Text>
+                            </View>
+                            <View style={styles.dashItem}>
+                                <Text style={[styles.dashLabel, { color: colors.textSecondary }]}>Strana</Text>
+                                <Text style={[styles.dashValue, { color: colors.text }]}>{currentPage}</Text>
+                            </View>
+                        </View>
+
+                        <ScrollView style={styles.listContainer} contentContainerStyle={{ paddingBottom: 100 }}>
+                            {/* Pagination Controls */}
+                            {finalItems.length > ITEMS_PER_PAGE && (
+                                <View style={styles.pagination}>
+                                    <TouchableOpacity
+                                        onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        style={[styles.pageBtn, { borderColor: colors.border, opacity: currentPage === 1 ? 0.5 : 1 }]}
+                                    >
+                                        <Ionicons name="chevron-back" size={20} color={colors.text} />
+                                    </TouchableOpacity>
+                                    <Text style={{ color: colors.text, marginHorizontal: 12 }}>
+                                        {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, finalItems.length)}
+                                    </Text>
+                                    <TouchableOpacity
+                                        onPress={() => setCurrentPage(p => Math.min(Math.ceil(finalItems.length / ITEMS_PER_PAGE), p + 1))}
+                                        disabled={currentPage * ITEMS_PER_PAGE >= finalItems.length}
+                                        style={[styles.pageBtn, { borderColor: colors.border, opacity: currentPage * ITEMS_PER_PAGE >= finalItems.length ? 0.5 : 1 }]}
+                                    >
+                                        <Ionicons name="chevron-forward" size={20} color={colors.text} />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {finalItems
+                                .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+                                .map((item, i) => renderFinalItem(item, (currentPage - 1) * ITEMS_PER_PAGE + i))
+                            }
+                        </ScrollView>
+
+                        {/* Fixed Actions Footer */}
+                        <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+                            {showExportOptions ? (
+                                <View style={{ gap: 12 }}>
+                                    {Platform.OS === 'android' && (
+                                        <Button title="💾 Uložiť do Mobilu" onPress={handleSaveToDevice} loading={loading} />
+                                    )}
+                                    <Button title="📊 Export (Zdieľať)" variant="outline" onPress={handleExportToExcel} loading={loading} />
+                                    <Button title="✅ Hotovo / Nový Import" variant="ghost" onPress={resetFlow} />
+                                </View>
+                            ) : (
+                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                    <Button
+                                        title="Späť"
+                                        variant="outline"
+                                        onPress={() => { setCurrentStep('mapping'); setShowExportOptions(false); }}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <Button
+                                        title="Potvrdiť"
+                                        onPress={handleConfirmImport}
+                                        style={{ flex: 2 }}
+                                    />
+                                </View>
+                            )}
+                        </View>
+                    </View>
                 )}
             </View>
         </SafeAreaView>
@@ -373,94 +368,139 @@ export default function OrderIntakeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingHorizontal: 16,
     },
     header: {
-        marginTop: 16,
-        marginBottom: 24,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 8,
     },
-    title: {
-        fontSize: 24,
-        fontWeight: '700',
-    },
-    subtitle: {
-        fontSize: 14,
-        marginTop: 4,
-    },
-    actions: {
-        marginBottom: 16,
+    screenTitle: {
+        fontSize: 28,
+        fontWeight: '800',
+        letterSpacing: -0.5,
     },
     content: {
         flex: 1,
     },
-    resultContainer: {
+    // Upload Styles
+    uploadContainer: {
         flex: 1,
+        justifyContent: 'center',
+        padding: 24,
     },
-    card: {
-        borderRadius: 8,
+    uploadZone: {
+        height: 300,
+        borderRadius: 24,
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+    },
+    iconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    uploadTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+    },
+    uploadSubtitle: {
+        fontSize: 14,
+    },
+    // Dashboard Styles
+    dashboard: {
+        flexDirection: 'row',
         padding: 16,
+        margin: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        justifyContent: 'space-around',
+    },
+    dashItem: {
+        alignItems: 'center',
+    },
+    dashLabel: {
+        fontSize: 12,
+        marginBottom: 4,
+        fontWeight: '600',
+    },
+    dashValue: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    // List Styles
+    listContainer: {
+        flex: 1,
+        paddingHorizontal: 16,
+    },
+    itemCard: {
+        padding: 12,
+        borderRadius: 12,
         borderWidth: 1,
         marginBottom: 8,
     },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    badgeContainer: {
-        marginTop: 8,
-        flexDirection: 'row',
-    },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    badgeText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    columnCard: {
-        padding: 12,
-        marginBottom: 8,
-        borderRadius: 4,
-        borderLeftWidth: 4,
-        elevation: 1,
-    },
-    row: {
+    itemHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 4,
     },
-    colHeader: {
-        fontSize: 14,
+    itemSku: {
+        fontSize: 15,
         fontWeight: '700',
     },
-    colField: {
-        fontSize: 14,
+    qtyBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+    },
+    qtyText: {
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    itemDesc: {
+        fontSize: 13,
+    },
+    errorList: {
+        marginTop: 8,
+        paddingTop: 8,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: '#ccc',
+    },
+    errorText: {
+        fontSize: 11,
         fontWeight: '600',
     },
-    colReason: {
-        fontSize: 12,
-        marginTop: 4,
-    },
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 48,
-    },
-    emptyText: {
-        marginTop: 8,
-    },
-    paginationContainer: {
+    pagination: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    pageBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    // Footer Actions
+    footer: {
+        padding: 16,
+        paddingBottom: Platform.OS === 'ios' ? 0 : 16, // SafeArea handles iOS bottom
+        borderTopWidth: 1,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 10,
     },
 });
