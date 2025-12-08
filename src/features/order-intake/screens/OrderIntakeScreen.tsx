@@ -202,14 +202,14 @@ export default function OrderIntakeScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right']}>
 
             <View style={styles.header}>
                 <Text style={[styles.screenTitle, { color: colors.text }]}>{t('intake.title')}</Text>
             </View>
 
-            {/* Negative margin to pull stepper up close to title */}
-            <View style={{ marginTop: -8, marginBottom: 8 }}>
+            {/* Restored standard margin */}
+            <View style={{ marginBottom: 8 }}>
                 <IntakeStepper currentStep={currentStep} />
             </View>
 
