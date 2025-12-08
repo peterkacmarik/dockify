@@ -30,7 +30,7 @@ export default function OrderIntakeScreen() {
 
     const ITEMS_PER_PAGE = 50;
 
-    // Initialize mapping when parseResult changes (moved from ColumnMapper)
+    // Initialize mapping when parseResult changes
     useEffect(() => {
         if (parseResult && parseResult.actions.length > 0 && parseResult.actions[0].type === 'apply_mapping') {
             const suggested = parseResult.actions[0].mapping;
@@ -59,7 +59,6 @@ export default function OrderIntakeScreen() {
             const parsedData = await pickAndParseExcel();
             if (parsedData) {
                 setParseResult(parsedData);
-                // Reset items when fresh analysis comes in
                 setFinalItems([]);
                 setCurrentStep('mapping');
             }
@@ -170,10 +169,6 @@ export default function OrderIntakeScreen() {
         }
     };
 
-    const handleExportToDatabase = () => {
-        Alert.alert('Info', 'Ukladanie do databázy bude dostupné čoskoro!');
-    };
-
     const renderFinalItem = (item: LegacyParsedOrderItem, index: number) => {
         const itemErrors = validationErrors[index] || [];
         const hasErrors = itemErrors.length > 0;
@@ -213,7 +208,10 @@ export default function OrderIntakeScreen() {
                 <Text style={[styles.screenTitle, { color: colors.text }]}>{t('intake.title')}</Text>
             </View>
 
-            <IntakeStepper currentStep={currentStep} />
+            {/* Negative margin to pull stepper up close to title */}
+            <View style={{ marginTop: -8, marginBottom: 8 }}>
+                <IntakeStepper currentStep={currentStep} />
+            </View>
 
             <View style={styles.content}>
 
@@ -317,15 +315,32 @@ export default function OrderIntakeScreen() {
                             }
                         </ScrollView>
 
-                        {/* Fixed Actions Footer */}
+                        {/* Fixed Actions Footer with Modern Icons */}
                         <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
                             {showExportOptions ? (
-                                <View style={{ gap: 12 }}>
+                                <View style={styles.iconActionsContainer}>
                                     {Platform.OS === 'android' && (
-                                        <Button title="💾 Uložiť do Mobilu" onPress={handleSaveToDevice} loading={loading} />
+                                        <TouchableOpacity
+                                            style={[styles.iconActionBtn, { backgroundColor: colors.secondary + '20' }]}
+                                            onPress={handleSaveToDevice}
+                                        >
+                                            <Ionicons name="save-outline" size={28} color={colors.secondary} />
+                                        </TouchableOpacity>
                                     )}
-                                    <Button title="📊 Export (Zdieľať)" variant="outline" onPress={handleExportToExcel} loading={loading} />
-                                    <Button title="✅ Hotovo / Nový Import" variant="ghost" onPress={resetFlow} />
+
+                                    <TouchableOpacity
+                                        style={[styles.iconActionBtn, { backgroundColor: colors.primary + '20' }]}
+                                        onPress={handleExportToExcel}
+                                    >
+                                        <Ionicons name="share-social-outline" size={28} color={colors.primary} />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.iconActionBtn, { backgroundColor: colors.text + '10' }]}
+                                        onPress={resetFlow}
+                                    >
+                                        <Ionicons name="checkmark-done-circle-outline" size={28} color={colors.text} />
+                                    </TouchableOpacity>
                                 </View>
                             ) : (
                                 <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -356,8 +371,7 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: 20,
-        // Removed explicit paddingTop: 16 to reduce spacing
-        paddingBottom: 8,
+        paddingBottom: 0,
     },
     screenTitle: {
         fontSize: 28,
@@ -478,7 +492,7 @@ const styles = StyleSheet.create({
     // Footer Actions
     footer: {
         padding: 16,
-        paddingBottom: 16, // Standardized padding
+        paddingBottom: 16,
         borderTopWidth: 1,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
@@ -487,5 +501,17 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 8,
         elevation: 10,
+    },
+    iconActionsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+    },
+    iconActionBtn: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
