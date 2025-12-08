@@ -12,6 +12,7 @@ import { Button } from '../../src/components/ui/Button';
 import { Input } from '../../src/components/ui/Input';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { supabase } from '../../src/lib/supabase';
+import { performGoogleLogin } from '../../src/lib/oauth';
 
 export default function RegisterScreen() {
     const { t } = useTranslation();
@@ -54,6 +55,22 @@ export default function RegisterScreen() {
             router.replace('/(auth)/login');
         }
         setLoading(false);
+    };
+
+    const onGoogleSignIn = async () => {
+        try {
+            setLoading(true);
+            const session = await performGoogleLogin();
+            if (session) {
+                router.replace('/');
+            }
+        } catch (error: any) {
+            if (error) {
+                Alert.alert('Google Login Error', error.message || 'Unknown error');
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     const gradientColors = isDark
@@ -143,6 +160,19 @@ export default function RegisterScreen() {
                                     onPress={handleSubmit(onRegister)}
                                     loading={loading}
                                     style={[styles.signUpButton, { backgroundColor: colors.primary }]}
+                                />
+
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 24 }}>
+                                    <View style={{ flex: 1, height: 1, backgroundColor: colors.border || '#E5E7EB' }} />
+                                    <Text style={{ marginHorizontal: 10, color: colors.textSecondary || '#6B7280', fontSize: 14 }}>OR</Text>
+                                    <View style={{ flex: 1, height: 1, backgroundColor: colors.border || '#E5E7EB' }} />
+                                </View>
+
+                                <Button
+                                    title="Sign up with Google"
+                                    variant="outline"
+                                    onPress={onGoogleSignIn}
+                                    style={{ borderColor: colors.border || '#E5E7EB' }}
                                 />
                             </View>
                         </View>
