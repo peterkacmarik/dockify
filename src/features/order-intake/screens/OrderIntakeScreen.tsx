@@ -17,7 +17,7 @@ export default function OrderIntakeScreen() {
 
     // States
     const [parseResult, setParseResult] = useState<ExcelParseResult | null>(null);
-    const [isMapping, setIsMapping] = useState(false);
+    // isMapping state removed - presence of parseResult implies mapping mode
     const [finalItems, setFinalItems] = useState<LegacyParsedOrderItem[]>([]);
     const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({});
     const [loading, setLoading] = useState(false);
@@ -34,7 +34,6 @@ export default function OrderIntakeScreen() {
                 setParseResult(parsedData);
                 // Reset items when fresh analysis comes in
                 setFinalItems([]);
-                setIsMapping(false);
             }
         } catch (error: any) {
             console.error(error);
@@ -43,9 +42,8 @@ export default function OrderIntakeScreen() {
         }
     };
 
-    const startMapping = () => {
-        setIsMapping(true);
-    };
+    // startMapping removed as we go direct
+
 
     const handleApplyMapping = async (mapping: Record<string, number>) => {
         if (!parseResult) return;
@@ -79,7 +77,6 @@ export default function OrderIntakeScreen() {
                 setFinalItems(cleanedItems);
                 setValidationErrors({});
                 setCurrentPage(1); // Reset to first page
-                setIsMapping(false);
                 setParseResult(null);
             } catch (error) {
                 console.error('Mapping processing error:', error);
@@ -154,50 +151,8 @@ export default function OrderIntakeScreen() {
         // TODO: Implement Supabase integration
     };
 
-    const renderAnalysis = (data: ExcelParseResult) => (
-        <ScrollView style={styles.resultContainer}>
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>{t('intake.analysisSummary')}</Text>
-                <Text style={{ color: colors.text }}>{t('intake.filesScanned', { rows: data.file_summary.rows, cols: data.file_summary.cols })}</Text>
-                <Text style={{ color: colors.text, marginTop: 4 }}>{t('intake.confidence')}: {(data.overall_confidence * 100).toFixed(0)}%</Text>
+    // renderAnalysis removed
 
-                <View style={styles.badgeContainer}>
-                    {data.overall_confidence > 0.8 ? (
-                        <View style={[styles.badge, { backgroundColor: '#4caf50' }]}><Text style={styles.badgeText}>{t('intake.highConfidence')}</Text></View>
-                    ) : (
-                        <View style={[styles.badge, { backgroundColor: '#ff9800' }]}><Text style={styles.badgeText}>{t('intake.reviewNeeded')}</Text></View>
-                    )}
-                </View>
-            </View>
-
-
-            <View style={{ marginTop: 16, gap: 12 }}>
-                <Button title={t('intake.mapColumns')} onPress={startMapping} />
-                <Button
-                    title={t('common.cancel')}
-                    variant="outline"
-                    onPress={() => {
-                        setParseResult(null);
-                        setFinalItems([]);
-                        setValidationErrors({});
-                    }}
-                />
-            </View>
-
-            <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 16 }]}>{t('intake.detectedColumns')}</Text>
-            {data.detected_columns.map((col, idx) => (
-                <View key={idx} style={[styles.columnCard, { backgroundColor: colors.card, borderLeftColor: col.confidence > 0.8 ? '#4caf50' : '#ff9800' }]}>
-                    <View style={styles.row}>
-                        <Text style={[styles.colHeader, { color: colors.text }]}>{col.header}</Text>
-                        <Text style={[styles.colField, { color: colors.primary }]}>
-                            {col.suggested_field ? t(`intake.fieldName_${col.suggested_field}`) : t('intake.unmapped')}
-                        </Text>
-                    </View>
-                    <Text style={[styles.colReason, { color: colors.textSecondary }]}>{col.reason.join(', ')}</Text>
-                </View>
-            ))}
-        </ScrollView>
-    );
 
     const renderFinalItem = (item: LegacyParsedOrderItem, index: number) => {
         const itemErrors = validationErrors[index] || [];
@@ -235,7 +190,7 @@ export default function OrderIntakeScreen() {
                 <Text style={[styles.title, { color: colors.text }]}>{t('intake.title')}</Text>
             </View>
 
-            {!isMapping && !parseResult && finalItems.length === 0 && (
+            {!parseResult && finalItems.length === 0 && (
                 <View style={styles.actions}>
                     <Button
                         title={t('intake.uploadFile')}
@@ -246,14 +201,12 @@ export default function OrderIntakeScreen() {
             )}
 
             <View style={styles.content}>
-                {isMapping && parseResult ? (
+                {parseResult ? (
                     <ColumnMapper
                         parseResult={parseResult}
                         onApply={handleApplyMapping}
-                        onCancel={() => setIsMapping(false)}
+                        onCancel={() => setParseResult(null)}
                     />
-                ) : parseResult ? (
-                    renderAnalysis(parseResult)
                 ) : finalItems.length > 0 ? (
                     <ScrollView>
                         {(() => {
