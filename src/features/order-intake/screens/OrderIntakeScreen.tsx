@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../../components/ui/Button';
@@ -11,20 +11,34 @@ import { cleanOrderItem, validateBatch } from '../services/dataValidator';
 import { ExcelParseResult, LegacyParsedOrderItem, pickAndParseExcel } from '../services/excelParser';
 import { exportToExcel, saveToDevice } from '../services/excelExporter';
 
+type IntakeStep = 'upload' | 'mapping' | 'preview';
+
 export default function OrderIntakeScreen() {
     const { t } = useTranslation();
     const { colors } = useTheme();
 
     // States
+    const [currentStep, setCurrentStep] = useState<IntakeStep>('upload');
     const [parseResult, setParseResult] = useState<ExcelParseResult | null>(null);
-    // isMapping state removed - presence of parseResult implies mapping mode
     const [finalItems, setFinalItems] = useState<LegacyParsedOrderItem[]>([]);
     const [validationErrors, setValidationErrors] = useState<Record<number, string[]>>({});
     const [loading, setLoading] = useState(false);
     const [processingMapping, setProcessingMapping] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [showExportOptions, setShowExportOptions] = useState(false);
+
+    // Maintain current mapping to allow "Back" functionality to pre-fill
+    // (This would require modifying ColumnMapper to accept initialMapping, skipping for now as 'Back' just re-shows mapper)
+
     const ITEMS_PER_PAGE = 50;
+
+    const resetFlow = () => {
+        setParseResult(null);
+        setFinalItems([]);
+        setValidationErrors({});
+        setShowExportOptions(false);
+        setCurrentStep('upload');
+    };
 
     const handleUpload = async () => {
         setLoading(true);
@@ -34,6 +48,7 @@ export default function OrderIntakeScreen() {
                 setParseResult(parsedData);
                 // Reset items when fresh analysis comes in
                 setFinalItems([]);
+                setCurrentStep('mapping');
             }
         } catch (error: any) {
             console.error(error);
@@ -41,9 +56,6 @@ export default function OrderIntakeScreen() {
             setLoading(false);
         }
     };
-
-    // startMapping removed as we go direct
-
 
     const handleApplyMapping = async (mapping: Record<string, number>) => {
         if (!parseResult) return;
@@ -77,7 +89,8 @@ export default function OrderIntakeScreen() {
                 setFinalItems(cleanedItems);
                 setValidationErrors({});
                 setCurrentPage(1); // Reset to first page
-                setParseResult(null);
+                setCurrentStep('preview');
+                // WE DO NOT NULLIFY parseResult HERE so we can go back
             } catch (error) {
                 console.error('Mapping processing error:', error);
                 alert('Chyba pri spracovaní dát');
@@ -114,11 +127,9 @@ export default function OrderIntakeScreen() {
         try {
             setLoading(true);
             await exportToExcel(finalItems);
-            alert('Excel súbor úspešne vyexportovaný!');
-            // Reset after successful export
-            setFinalItems([]);
-            setValidationErrors({});
-            setShowExportOptions(false);
+            Alert.alert('Success', 'Excel súbor úspešne vyexportovaný!');
+            // DO NOT RESET FLOW AUTOMATICALLY
+            // User stays on screen
         } catch (error) {
             console.error('Export error:', error);
             alert('Chyba pri exporte do Excelu');
@@ -132,11 +143,8 @@ export default function OrderIntakeScreen() {
             setLoading(true);
             const success = await saveToDevice(finalItems);
             if (success) {
-                alert('Súbor bol úspešne uložený!');
-                // Reset after successful save
-                setFinalItems([]);
-                setValidationErrors({});
-                setShowExportOptions(false);
+                Alert.alert('Success', 'Súbor bol úspešne uložený!');
+                // DO NOT RESET FLOW AUTOMATICALLY
             }
         } catch (error) {
             console.error('Save error:', error);
@@ -150,9 +158,6 @@ export default function OrderIntakeScreen() {
         alert('Ukladanie do databázy bude dostupné čoskoro!');
         // TODO: Implement Supabase integration
     };
-
-    // renderAnalysis removed
-
 
     const renderFinalItem = (item: LegacyParsedOrderItem, index: number) => {
         const itemErrors = validationErrors[index] || [];
@@ -190,7 +195,7 @@ export default function OrderIntakeScreen() {
                 <Text style={[styles.title, { color: colors.text }]}>{t('intake.title')}</Text>
             </View>
 
-            {!parseResult && finalItems.length === 0 && (
+            {currentStep === 'upload' && (
                 <View style={styles.actions}>
                     <Button
                         title={t('intake.uploadFile')}
@@ -201,13 +206,13 @@ export default function OrderIntakeScreen() {
             )}
 
             <View style={styles.content}>
-                {parseResult ? (
+                {currentStep === 'mapping' && parseResult ? (
                     <ColumnMapper
                         parseResult={parseResult}
                         onApply={handleApplyMapping}
-                        onCancel={() => setParseResult(null)}
+                        onCancel={resetFlow}
                     />
-                ) : finalItems.length > 0 ? (
+                ) : currentStep === 'preview' && finalItems.length > 0 ? (
                     <ScrollView>
                         {(() => {
                             const totalPages = Math.ceil(finalItems.length / ITEMS_PER_PAGE);
@@ -272,6 +277,7 @@ export default function OrderIntakeScreen() {
                                                 disabled={currentPage === totalPages}
                                                 variant="outline"
                                                 size="sm"
+                                                style={{ minWidth: 40 }}
                                             />
                                         </View>
                                     )}
@@ -302,15 +308,18 @@ export default function OrderIntakeScreen() {
                                                     variant="outline"
                                                     onPress={handleExportToDatabase}
                                                 />
+                                                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+                                                <Button
+                                                    title="✨ Dokončiť / Nový Import"
+                                                    variant="ghost"
+                                                    onPress={resetFlow}
+                                                    style={{ marginTop: 8 }}
+                                                />
                                                 <Button
                                                     title={t('common.cancel')}
                                                     variant="outline"
-                                                    onPress={() => {
-                                                        setShowExportOptions(false);
-                                                        setFinalItems([]);
-                                                        setValidationErrors({});
-                                                    }}
-                                                    style={{ borderColor: colors.error }}
+                                                    onPress={() => setShowExportOptions(false)}
+                                                    style={{ borderColor: colors.border }}
                                                 />
                                             </>
                                         ) : (
@@ -319,12 +328,26 @@ export default function OrderIntakeScreen() {
                                                     title={t('intake.confirmImport')}
                                                     onPress={handleConfirmImport}
                                                 />
-                                                <Button
-                                                    title={t('intake.discard')}
-                                                    variant="outline"
-                                                    onPress={() => setFinalItems([])}
-                                                    style={{ borderColor: colors.error }}
-                                                />
+                                                <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Button
+                                                            title="⬅ Späť na Mapovanie"
+                                                            variant="outline"
+                                                            onPress={() => {
+                                                                setCurrentStep('mapping');
+                                                                setShowExportOptions(false);
+                                                            }}
+                                                        />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Button
+                                                            title={t('intake.discard')}
+                                                            variant="outline"
+                                                            onPress={resetFlow}
+                                                            style={{ borderColor: colors.error }}
+                                                        />
+                                                    </View>
+                                                </View>
                                             </>
                                         )}
                                     </View>
