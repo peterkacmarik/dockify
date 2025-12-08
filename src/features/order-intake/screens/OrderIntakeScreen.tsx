@@ -74,13 +74,6 @@ export default function OrderIntakeScreen() {
     const handleApplyMapping = async (mapping: Record<string, number> | Record<number, string>) => {
         if (!parseResult) return;
 
-        // If mapping is from state (Record<number, string>), convert it to Record<string, number>
-        // But the mapping argument here depends on how we call it.
-        // Let's normalize inside.
-
-        // Convert number->string map to string->number map for processing
-        // We rely on currentMapping state mostly, but allow arg.
-
         const fields = Object.values(currentMapping);
         if (!fields.includes('sku') || !fields.includes('quantity')) {
             Alert.alert('Chyba', t('intake.mappingErrorDesc'));
@@ -89,16 +82,13 @@ export default function OrderIntakeScreen() {
 
         setProcessingMapping(true);
 
-        // Usage of setTimeout to allow UI update
         setTimeout(() => {
             try {
-                // Convert index->field back to field->index
                 const finalMapping: Record<string, number> = {};
                 Object.entries(currentMapping).forEach(([indexStr, field]) => {
                     finalMapping[field] = Number(indexStr);
                 });
 
-                // Transform Raw Data -> Items
                 const { file_summary } = parseResult;
 
                 const transformed: LegacyParsedOrderItem[] = file_summary.all_rows.map((row, i) => {
@@ -116,12 +106,11 @@ export default function OrderIntakeScreen() {
                     };
                 });
 
-                // Clean items
                 const cleanedItems = transformed.map(cleanOrderItem);
 
                 setFinalItems(cleanedItems);
                 setValidationErrors({});
-                setCurrentPage(1); // Reset to first page
+                setCurrentPage(1);
                 setCurrentStep('preview');
 
             } catch (error) {
@@ -136,12 +125,10 @@ export default function OrderIntakeScreen() {
     const handleConfirmImport = () => {
         const validation = validateBatch(finalItems);
 
-        // Check for duplicates
         if (validation.duplicates.length > 0) {
             Alert.alert(`Upozornenie: Duplicitné SKU: ${validation.duplicates.join(', ')}`);
         }
 
-        // If there are invalid items, show errors
         if (validation.invalidItems.length > 0) {
             const errors: Record<number, string[]> = {};
             validation.invalidItems.forEach(({ index, errors: itemErrors }) => {
@@ -152,7 +139,6 @@ export default function OrderIntakeScreen() {
             return;
         }
 
-        // All valid - show export options
         setShowExportOptions(true);
     };
 
@@ -186,7 +172,6 @@ export default function OrderIntakeScreen() {
 
     const handleExportToDatabase = () => {
         Alert.alert('Info', 'Ukladanie do databázy bude dostupné čoskoro!');
-        // TODO: Implement Supabase integration
     };
 
     const renderFinalItem = (item: LegacyParsedOrderItem, index: number) => {
@@ -222,7 +207,7 @@ export default function OrderIntakeScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
 
             <View style={styles.header}>
                 <Text style={[styles.screenTitle, { color: colors.text }]}>{t('intake.title')}</Text>
@@ -371,7 +356,7 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: 20,
-        paddingTop: 16,
+        // Removed explicit paddingTop: 16 to reduce spacing
         paddingBottom: 8,
     },
     screenTitle: {
@@ -493,7 +478,7 @@ const styles = StyleSheet.create({
     // Footer Actions
     footer: {
         padding: 16,
-        paddingBottom: Platform.OS === 'ios' ? 0 : 16, // SafeArea handles iOS bottom
+        paddingBottom: 16, // Standardized padding
         borderTopWidth: 1,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
