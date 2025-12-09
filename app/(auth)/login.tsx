@@ -23,6 +23,13 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const { isSupported, isBiometricEnabled, loginWithBiometrics } = useBiometrics();
 
+    // Auto-trigger biometrics if enabled
+    React.useEffect(() => {
+        if (isSupported && isBiometricEnabled) {
+            onBiometricLogin();
+        }
+    }, [isSupported, isBiometricEnabled]);
+
     // Validation Schema with translations
     const loginSchema = z.object({
         email: z.string().email(t('auth.invalidEmail')),
@@ -73,18 +80,9 @@ export default function LoginScreen() {
 
     const onBiometricLogin = async () => {
         setLoading(true);
-        const credentials = await loginWithBiometrics();
-        if (credentials) {
-            const { error } = await supabase.auth.signInWithPassword({
-                email: credentials.email,
-                password: credentials.password
-            });
-            if (error) {
-                Alert.alert(t('auth.loginFailed'), error.message);
-                setLoading(false);
-            } else {
-                router.replace('/');
-            }
+        const success = await loginWithBiometrics();
+        if (success) {
+            router.replace('/');
         } else {
             setLoading(false);
         }

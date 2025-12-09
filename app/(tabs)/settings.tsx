@@ -7,8 +7,6 @@ import { useTheme } from '../../src/contexts/ThemeContext';
 import { changeLanguage } from '../../src/lib/i18n';
 import { supabase } from '../../src/lib/supabase';
 import { useBiometrics } from '../../src/hooks/useBiometrics';
-import { Input } from '../../src/components/ui/Input';
-import { Button } from '../../src/components/ui/Button';
 
 const LANGUAGES = [
     { code: 'en', name: 'English', nativeName: 'English' },
@@ -25,8 +23,6 @@ export default function SettingsScreen() {
 
     // Biometric state
     const { isSupported, isBiometricEnabled, enableBiometrics, disableBiometrics } = useBiometrics();
-    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
-    const [passwordInput, setPasswordInput] = useState('');
     const [enablingBiometrics, setEnablingBiometrics] = useState(false);
 
     const currentLanguage = LANGUAGES.find(lang => lang.code === i18n.language) || LANGUAGES[1];
@@ -68,49 +64,27 @@ export default function SettingsScreen() {
 
     const handleBiometricToggle = async (value: boolean) => {
         if (value) {
-            setPasswordModalVisible(true);
+            setEnablingBiometrics(true);
+            try {
+                // Password is no longer needed, we use the active session
+                await enableBiometrics();
+                Alert.alert('Success', 'Biometric login enabled');
+            } catch (error: any) {
+                // User cancelled or error
+                if (error?.message?.includes('User cancelled')) {
+                    // don't alert
+                } else {
+                    Alert.alert('Error', error.message || 'Failed to enable biometrics');
+                }
+            } finally {
+                setEnablingBiometrics(false);
+            }
         } else {
             try {
                 await disableBiometrics();
             } catch (error) {
                 Alert.alert('Error', 'Failed to disable biometrics');
             }
-        }
-    };
-
-    const confirmEnableBiometrics = async () => {
-        if (!passwordInput) {
-            Alert.alert('Error', 'Please enter your password');
-            return;
-        }
-        setEnablingBiometrics(true);
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user || !user.email) {
-                throw new Error('User not found');
-            }
-
-            // Verify password
-            const { error } = await supabase.auth.signInWithPassword({
-                email: user.email,
-                password: passwordInput
-            });
-
-            if (error) {
-                Alert.alert('Error', 'Incorrect password');
-                setEnablingBiometrics(false);
-                return;
-            }
-
-            // We must pass the password to enableBiometrics as it stores it
-            await enableBiometrics({ email: user.email, password: passwordInput });
-            setPasswordModalVisible(false);
-            setPasswordInput('');
-            Alert.alert('Success', 'Biometric login enabled');
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to enable biometrics');
-        } finally {
-            setEnablingBiometrics(false);
         }
     };
 
@@ -260,57 +234,7 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
             </Modal>
 
-            {/* Password Confirmation Modal */}
-            <Modal
-                visible={passwordModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setPasswordModalVisible(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setPasswordModalVisible(false)}
-                >
-                    <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-                        <TouchableOpacity activeOpacity={1}>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>
-                                {t('settings.confirmPassword', 'Confirm Password')}
-                            </Text>
-                            <Text style={{ color: colors.textSecondary, marginBottom: 16, textAlign: 'center' }}>
-                                {t('settings.enterPasswordForBiometrics', 'Please enter your password to enable biometric login.')}
-                            </Text>
 
-                            <Input
-                                placeholder={t('auth.password')}
-                                secureTextEntry
-                                isPassword
-                                value={passwordInput}
-                                onChangeText={setPasswordInput}
-                                autoCapitalize="none"
-                            />
-
-                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                                <Button
-                                    title={t('common.cancel')}
-                                    variant="outline"
-                                    onPress={() => {
-                                        setPasswordModalVisible(false);
-                                        setPasswordInput('');
-                                    }}
-                                    style={{ flex: 1 }}
-                                />
-                                <Button
-                                    title={t('common.confirm')}
-                                    onPress={confirmEnableBiometrics}
-                                    loading={enablingBiometrics}
-                                    style={{ flex: 1 }}
-                                />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
         </SafeAreaView >
     );
 }
