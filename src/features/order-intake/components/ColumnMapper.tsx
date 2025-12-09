@@ -10,31 +10,38 @@ interface ColumnMapperProps {
     parseResult: ExcelParseResult;
     mapping: Record<number, string>;
     onChange: (newMapping: Record<number, string>) => void;
-    // Removed onApply and onCancel as they are now handled by parent
+    customFields: { key: string; label: string; is_active: boolean | null }[];
 }
 
 const AVAILABLE_FIELDS = ['sku', 'quantity', 'description', 'price', 'ignore'];
 
-export const ColumnMapper: React.FC<ColumnMapperProps> = ({ parseResult, mapping, onChange }) => {
+export const ColumnMapper: React.FC<ColumnMapperProps> = ({ parseResult, mapping, onChange, customFields = [] }) => {
     const { t } = useTranslation();
     const { colors } = useTheme();
 
-    const handleFieldSelect = (colIndex: number, field: string) => {
+    const handleFieldSelect = (colIndex: number, fieldKey: string) => {
         const newMapping = { ...mapping };
 
-        // Logic: preventing duplicates for unique fields if needed, but let's keep it simple flexibility
-        // If field is 'ignore', remove from mapping
-        if (field === 'ignore') {
+        if (fieldKey === 'ignore') {
             delete newMapping[colIndex];
         } else {
-            // Remove this field from other columns if it's unique? (SKU/Qty usually unique)
-            // Optional: for now allow user to do whatever, validation will catch it
-            newMapping[colIndex] = field;
+            newMapping[colIndex] = fieldKey;
         }
         onChange(newMapping);
     };
 
-    const getFieldLabel = (field: string) => t(`intake.fieldName_${field}`);
+    const getFieldLabel = (fieldKey: string) => {
+        if (fieldKey === 'ignore') return 'Ignorovať';
+        const field = customFields.find(f => f.key === fieldKey);
+        return field ? field.label : fieldKey;
+    };
+
+    // Merge standard fields (if any legacy logic remains) with DB fields
+    // Actually, we should rely purely on customFields passed from parent, plus 'ignore'
+    const availableOptions = [
+        ...customFields.filter(f => f.is_active).map(f => f.key),
+        'ignore'
+    ];
 
     return (
         <View style={styles.container}>
@@ -50,33 +57,25 @@ export const ColumnMapper: React.FC<ColumnMapperProps> = ({ parseResult, mapping
                         <View key={col.column_index} style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
                             <View style={styles.colInfo}>
                                 <Text style={[styles.colHeader, { color: colors.text }]}>{col.header}</Text>
-                                {col.suggested_field && (
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                                        <Ionicons name="sparkles" size={12} color={colors.primary} style={{ marginRight: 4 }} />
-                                        <Text style={[styles.suggestion, { color: colors.textSecondary }]}>
-                                            {getFieldLabel(col.suggested_field)}
-                                        </Text>
-                                    </View>
-                                )}
                             </View>
 
                             <View style={styles.fieldSelect}>
-                                {AVAILABLE_FIELDS.map(f => (
+                                {availableOptions.map(fKey => (
                                     <TouchableOpacity
-                                        key={f}
+                                        key={fKey}
                                         style={[
                                             styles.chip,
                                             { borderColor: colors.border, backgroundColor: colors.background },
-                                            assigned === f && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
+                                            assigned === fKey && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
                                         ]}
-                                        onPress={() => handleFieldSelect(col.column_index, f)}
+                                        onPress={() => handleFieldSelect(col.column_index, fKey)}
                                     >
                                         <Text style={[
                                             styles.chipText,
                                             { color: colors.textSecondary },
-                                            assigned === f && { color: colors.primary, fontWeight: '700' }
+                                            assigned === fKey && { color: colors.primary, fontWeight: '700' }
                                         ]}>
-                                            {getFieldLabel(f)}
+                                            {getFieldLabel(fKey)}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
@@ -119,10 +118,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
     },
-    suggestion: {
-        fontSize: 12,
-        fontStyle: 'italic',
-    },
+
     fieldSelect: {
         flexDirection: 'row',
         flexWrap: 'wrap',

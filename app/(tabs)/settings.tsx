@@ -1,4 +1,4 @@
-import { ChevronDown, Languages, LogOut, Moon, Sun } from 'lucide-react-native';
+import { ChevronDown, Languages, LogOut, Moon, Sun, Fingerprint } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { changeLanguage } from '../../src/lib/i18n';
 import { supabase } from '../../src/lib/supabase';
+import { useBiometrics } from '../../src/hooks/useBiometrics';
+import { Input } from '../../src/components/ui/Input';
+import { Button } from '../../src/components/ui/Button';
 
 const LANGUAGES = [
     { code: 'en', name: 'English', nativeName: 'English' },
@@ -19,6 +22,12 @@ export default function SettingsScreen() {
     const isDark = theme === 'dark';
     const [languageModalVisible, setLanguageModalVisible] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    // Biometric state
+    const { isSupported, isBiometricEnabled, enableBiometrics, disableBiometrics } = useBiometrics();
+    const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [passwordInput, setPasswordInput] = useState('');
+    const [enablingBiometrics, setEnablingBiometrics] = useState(false);
 
     const currentLanguage = LANGUAGES.find(lang => lang.code === i18n.language) || LANGUAGES[1];
 
@@ -57,10 +66,84 @@ export default function SettingsScreen() {
         setLanguageModalVisible(false);
     };
 
+    const handleBiometricToggle = async (value: boolean) => {
+        if (value) {
+            setPasswordModalVisible(true);
+        } else {
+            try {
+                await disableBiometrics();
+            } catch (error) {
+                Alert.alert('Error', 'Failed to disable biometrics');
+            }
+        }
+    };
+
+    const confirmEnableBiometrics = async () => {
+        if (!passwordInput) {
+            Alert.alert('Error', 'Please enter your password');
+            return;
+        }
+        setEnablingBiometrics(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user || !user.email) {
+                throw new Error('User not found');
+            }
+
+            // Verify password
+            const { error } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: passwordInput
+            });
+
+            if (error) {
+                Alert.alert('Error', 'Incorrect password');
+                setEnablingBiometrics(false);
+                return;
+            }
+
+            // We must pass the password to enableBiometrics as it stores it
+            await enableBiometrics({ email: user.email, password: passwordInput });
+            setPasswordModalVisible(false);
+            setPasswordInput('');
+            Alert.alert('Success', 'Biometric login enabled');
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to enable biometrics');
+        } finally {
+            setEnablingBiometrics(false);
+        }
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.content}>
                 <Text style={[styles.header, { color: colors.text }]}>{t('settings.title')}</Text>
+
+                {/* Biometric Toggle Card */}
+                <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, !isSupported && { opacity: 0.7 }]}>
+                    <View style={styles.cardRow}>
+                        <View style={styles.cardLeft}>
+                            <Fingerprint size={24} color={isSupported ? colors.primary : colors.textSecondary} />
+                            <View style={styles.cardText}>
+                                <Text style={[styles.cardTitle, { color: colors.text }]}>
+                                    {t('settings.biometricLogin', 'Biometric Login')}
+                                </Text>
+                                <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
+                                    {isSupported
+                                        ? t('settings.biometricDescription', 'Use fingerprint/face ID to log in')
+                                        : t('settings.biometricNotAvailable', 'Biometrics not available or not enrolled')}
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={isBiometricEnabled && isSupported}
+                            onValueChange={handleBiometricToggle}
+                            trackColor={{ false: '#D1D5DB', true: colors.primary }}
+                            thumbColor="#FFFFFF"
+                            disabled={!isSupported}
+                        />
+                    </View>
+                </View>
 
                 {/* Theme Toggle Card */}
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -176,7 +259,59 @@ export default function SettingsScreen() {
                     </View>
                 </TouchableOpacity>
             </Modal>
-        </SafeAreaView>
+
+            {/* Password Confirmation Modal */}
+            <Modal
+                visible={passwordModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPasswordModalVisible(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setPasswordModalVisible(false)}
+                >
+                    <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+                        <TouchableOpacity activeOpacity={1}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>
+                                {t('settings.confirmPassword', 'Confirm Password')}
+                            </Text>
+                            <Text style={{ color: colors.textSecondary, marginBottom: 16, textAlign: 'center' }}>
+                                {t('settings.enterPasswordForBiometrics', 'Please enter your password to enable biometric login.')}
+                            </Text>
+
+                            <Input
+                                placeholder={t('auth.password')}
+                                secureTextEntry
+                                isPassword
+                                value={passwordInput}
+                                onChangeText={setPasswordInput}
+                                autoCapitalize="none"
+                            />
+
+                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                                <Button
+                                    title={t('common.cancel')}
+                                    variant="outline"
+                                    onPress={() => {
+                                        setPasswordModalVisible(false);
+                                        setPasswordInput('');
+                                    }}
+                                    style={{ flex: 1 }}
+                                />
+                                <Button
+                                    title={t('common.confirm')}
+                                    onPress={confirmEnableBiometrics}
+                                    loading={enablingBiometrics}
+                                    style={{ flex: 1 }}
+                                />
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+        </SafeAreaView >
     );
 }
 

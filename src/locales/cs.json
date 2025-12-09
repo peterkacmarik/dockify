@@ -2,6 +2,7 @@
     "common": {
         "save": "Uložit",
         "cancel": "Zrušit",
+        "confirm": "Potvrdit",
         "logout": "Odhlásit se",
         "loading": "Načítá se...",
         "error": "Chyba",

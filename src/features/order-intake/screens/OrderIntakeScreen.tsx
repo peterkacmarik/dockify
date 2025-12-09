@@ -11,6 +11,8 @@ import { cleanOrderItem, validateBatch } from '../services/dataValidator';
 import { ExcelParseResult, LegacyParsedOrderItem, pickAndParseExcel } from '../services/excelParser';
 import { exportToExcel, saveToDevice } from '../services/excelExporter';
 import { IntakeStepper, IntakeStep } from '../components/IntakeStepper';
+import { useIntakeSettings } from '../hooks/useIntakeSettings';
+import { router, useFocusEffect } from 'expo-router';
 
 export default function OrderIntakeScreen() {
     const { t } = useTranslation();
@@ -28,21 +30,37 @@ export default function OrderIntakeScreen() {
     const [currentPage, setCurrentPage] = useState(1);
     const [showExportOptions, setShowExportOptions] = useState(false);
 
-    const ITEMS_PER_PAGE = 50;
+
+
+    const { settings, fields, reloadSettings } = useIntakeSettings();
+    const ITEMS_PER_PAGE = settings.paginationLimit;
+
+    // Refresh settings when screen focuses
+    useFocusEffect(
+        React.useCallback(() => {
+            reloadSettings();
+        }, [reloadSettings])
+    );
 
     // Initialize mapping when parseResult changes
     useEffect(() => {
         if (parseResult && parseResult.actions.length > 0 && parseResult.actions[0].type === 'apply_mapping') {
             const suggested = parseResult.actions[0].mapping;
             const init: Record<number, string> = {};
+
+            // Only map fields that are actually active
+            const activeKeys = new Set(fields.filter(f => f.is_active).map(f => f.key));
+
             Object.entries(suggested).forEach(([field, index]) => {
-                init[index] = field;
+                if (activeKeys.has(field)) {
+                    init[index] = field;
+                }
             });
             setCurrentMapping(init);
         } else {
             setCurrentMapping({});
         }
-    }, [parseResult]);
+    }, [parseResult, fields]);
 
     const resetFlow = () => {
         setParseResult(null);
@@ -73,8 +91,12 @@ export default function OrderIntakeScreen() {
     const handleApplyMapping = async (mapping: Record<string, number> | Record<number, string>) => {
         if (!parseResult) return;
 
-        const fields = Object.values(currentMapping);
-        if (!fields.includes('sku') || !fields.includes('quantity')) {
+        const mappedFields = Object.values(currentMapping);
+        const requiredFields = fields.filter(f => f.is_required && f.is_active).map(f => f.key);
+
+        // Basic validation: check if all required active fields are mapped? 
+        // Or at least SKU and Quantity which are critical
+        if (!mappedFields.includes('sku') || !mappedFields.includes('quantity')) {
             Alert.alert('Chyba', t('intake.mappingErrorDesc'));
             return;
         }
@@ -92,14 +114,37 @@ export default function OrderIntakeScreen() {
 
                 const transformed: LegacyParsedOrderItem[] = file_summary.all_rows.map((row, i) => {
                     const qtyVal = row[finalMapping['quantity']];
-                    const description = finalMapping['description'] !== undefined ? row[finalMapping['description']] : '';
-                    const price = finalMapping['price'] !== undefined ? Number(row[finalMapping['price']]) : undefined;
+                    const skuVal = row[finalMapping['sku']];
+
+                    const customFieldValues: Record<string, any> = {};
+
+                    // Iterate over all active fields
+                    fields.forEach(field => {
+                        if (!field.is_active) return;
+                        if (field.key === 'sku' || field.key === 'quantity') return; // Handled separately
+
+                        if (finalMapping[field.key] !== undefined) {
+                            let val: string | number | undefined = row[finalMapping[field.key]];
+                            // Special handling for known types if needed, e.g. price
+                            if (field.key === 'price') {
+                                val = val !== undefined ? Number(val) : undefined;
+                            }
+                            customFieldValues[field.key] = val;
+                        }
+                    });
+
+                    // Backward compatibility: map price/description to root if they exist, 
+                    // though we should strictly use customFields now. 
+                    // Let's populate the root props for now if they match standard keys to keep interface happy
+                    // or just rely on customFields for everything except SKU/Qty.
+                    // The interface LegacyParsedOrderItem expects optional price/description.
 
                     return {
-                        partNumber: row[finalMapping['sku']] || '',
+                        partNumber: String(skuVal || ''),
                         quantity: qtyVal as any,
-                        description: description || '',
-                        price: price,
+                        description: String(customFieldValues['description'] || ''),
+                        price: customFieldValues['price'] !== undefined ? Number(customFieldValues['price']) : undefined,
+                        customFields: customFieldValues,
                         isValid: true,
                         validationError: undefined
                     };
@@ -145,7 +190,7 @@ export default function OrderIntakeScreen() {
         try {
             setLoading(true);
             await exportToExcel(finalItems);
-            Alert.alert('Success', 'Excel súbor úspešne vyexportovaný!');
+            Alert.alert('Success', 'Excel súbor vyexportovaný!');
         } catch (error) {
             console.error('Export error:', error);
             Alert.alert('Chyba', 'Chyba pri exporte do Excelu');
@@ -185,10 +230,28 @@ export default function OrderIntakeScreen() {
                         <Text style={[styles.qtyText, { color: colors.primary }]}>{item.quantity} ks</Text>
                     </View>
                 </View>
-                {item.description ? <Text style={[styles.itemDesc, { color: colors.textSecondary }]} numberOfLines={1}>{item.description}</Text> : null}
-                {item.price !== undefined && (
-                    <Text style={{ color: colors.text, marginTop: 4, fontSize: 13, fontWeight: '600' }}>€{item.price.toFixed(2)}</Text>
-                )}
+
+                {/* Render Dynamic Fields */}
+                {fields.map(field => {
+                    if (!field.is_active || field.key === 'sku' || field.key === 'quantity') return null;
+
+                    const value = item.customFields?.[field.key];
+                    if (value === undefined || value === null || value === '') return null;
+
+                    if (field.key === 'price') {
+                        return (
+                            <Text key={field.key} style={{ color: colors.text, marginTop: 4, fontSize: 13, fontWeight: '600' }}>
+                                {field.label}: €{Number(value).toFixed(2)}
+                            </Text>
+                        );
+                    }
+
+                    return (
+                        <Text key={field.key} style={[styles.itemDesc, { color: colors.textSecondary }]}>
+                            <Text style={{ fontWeight: '600' }}>{field.label}: </Text>{value}
+                        </Text>
+                    );
+                })}
 
                 {hasErrors && (
                     <View style={styles.errorList}>
@@ -204,12 +267,15 @@ export default function OrderIntakeScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['left', 'right']}>
 
-            <View style={styles.header}>
+            {/* Custom paddingTop - upravte hodnotu podľa potreby (napr. 8, 12, 16) */}
+            <View style={[styles.header, { paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
                 <Text style={[styles.screenTitle, { color: colors.text }]}>{t('intake.title')}</Text>
+                <TouchableOpacity onPress={() => router.push('/intake-settings')} style={{ padding: 8 }}>
+                    <Ionicons name="settings-outline" size={24} color={colors.text} />
+                </TouchableOpacity>
             </View>
 
-            {/* Restored standard margin */}
-            <View style={{ marginBottom: 8 }}>
+            <View style={{ marginBottom: 0 }}>
                 <IntakeStepper currentStep={currentStep} />
             </View>
 
@@ -243,6 +309,7 @@ export default function OrderIntakeScreen() {
                             parseResult={parseResult}
                             mapping={currentMapping}
                             onChange={setCurrentMapping}
+                            customFields={fields}
                         />
                         {/* Fixed Actions Footer for Mapping */}
                         <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
@@ -321,10 +388,10 @@ export default function OrderIntakeScreen() {
                                 <View style={styles.iconActionsContainer}>
                                     {Platform.OS === 'android' && (
                                         <TouchableOpacity
-                                            style={[styles.iconActionBtn, { backgroundColor: colors.secondary + '20' }]}
+                                            style={[styles.iconActionBtn, { backgroundColor: colors.textSecondary + '20' }]}
                                             onPress={handleSaveToDevice}
                                         >
-                                            <Ionicons name="save-outline" size={28} color={colors.secondary} />
+                                            <Ionicons name="save-outline" size={28} color={colors.textSecondary} />
                                         </TouchableOpacity>
                                     )}
 
@@ -370,8 +437,10 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     header: {
-        paddingHorizontal: 20,
-        paddingBottom: 0,
+        paddingHorizontal: 24,
+        paddingBottom: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     screenTitle: {
         fontSize: 28,

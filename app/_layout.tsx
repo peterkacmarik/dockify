@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { Session } from '@supabase/supabase-js';
 import { useFonts } from 'expo-font';
-import { router, Slot, useSegments } from 'expo-router';
+import { router, Stack, useSegments } from 'expo-router'; // Changed Slot to Stack
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
@@ -14,10 +14,16 @@ import { supabase } from '../src/lib/supabase';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+import { Ionicons } from '@expo/vector-icons';
+
+// ...
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   // Force cache refresh
-  const [loaded] = useFonts({});
+  const [loaded] = useFonts({
+    ...Ionicons.font,
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [initializing, setInitializing] = useState(true);
 
@@ -44,12 +50,12 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
 
-    if (session && !inTabsGroup) {
-      // If signed in and not in tabs group, redirect to tabs
-      router.replace('/(tabs)');
-    } else if (!session && !inAuthGroup) {
+    if (!session && !inAuthGroup) {
       // If not signed in and not in auth group, redirect to login
       router.replace('/(auth)/login');
+    } else if (session && (inAuthGroup || !segments[0])) {
+      // If signed in and in auth group (login/register) OR at root (index), redirect to tabs
+      router.replace('/(tabs)');
     }
   }, [session, initializing, segments]);
 
@@ -66,7 +72,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Slot />
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="intake-settings" options={{ headerShown: false, presentation: 'card' }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+        </Stack>
       </NavThemeProvider>
     </ThemeProvider>
   );

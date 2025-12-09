@@ -9,6 +9,7 @@ export interface LegacyParsedOrderItem {
     quantity: number;
     description?: string;
     price?: number;
+    customFields?: Record<string, any>;
     isValid: boolean;
     validationError?: string;
 }
