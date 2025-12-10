@@ -42,15 +42,13 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: t('tabs.intake'),
-            tabBarIcon: ({ color }) => <Upload size={24} color={color} />,
+            href: null,
           }}
         />
         <Tabs.Screen
           name="processing"
           options={{
-            title: t('tabs.processing'),
-            tabBarIcon: ({ color }) => <Package size={24} color={color} />,
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -58,6 +56,7 @@ export default function TabLayout() {
           options={{
             title: t('tabs.inventory'),
             tabBarIcon: ({ color }) => <LayoutList size={24} color={color} />,
+            headerShown: false,
           }}
         />
         <Tabs.Screen

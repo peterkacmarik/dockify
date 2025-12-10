@@ -2,18 +2,23 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../src/contexts/ThemeContext';
+import { useTheme } from '../../../src/contexts/ThemeContext';
 
-export default function OrderProcessingScreen() {
+export default function LowStockScreen() {
     const { t } = useTranslation();
     const { colors } = useTheme();
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            edges={['bottom']}
+        >
             <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.text }]}>{t('processing.title')}</Text>
+                <Text style={[styles.title, { color: colors.text }]}>
+                    {t('inventory.lowStock.title')}
+                </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    {t('processing.subtitle')}
+                    {t('inventory.lowStock.subtitle')}
                 </Text>
             </View>
         </SafeAreaView>

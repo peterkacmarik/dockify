@@ -82,8 +82,35 @@
         "subtitle": "Part assignment and palletization flow."
     },
     "inventory": {
-        "title": "Inventory Module",
-        "subtitle": "Stock levels and cross-dock logic."
+        "title": "Warehouse",
+        "subtitle": "Warehouse and inventory management",
+        "tiles": {
+            "products": "Product List",
+            "scan": "Scan",
+            "movements": "Movements",
+            "lowStock": "Low Stock",
+            "settings": "Settings"
+        },
+        "products": {
+            "title": "Product List",
+            "subtitle": "Overview of all warehouse products"
+        },
+        "scan": {
+            "title": "Scan",
+            "subtitle": "Scan products and barcodes"
+        },
+        "movements": {
+            "title": "Movements",
+            "subtitle": "Product movement history"
+        },
+        "lowStock": {
+            "title": "Low Stock",
+            "subtitle": "Products with low stock levels"
+        },
+        "warehouseSettings": {
+            "title": "Warehouse Settings",
+            "subtitle": "Warehouse and inventory configuration"
+        }
     },
     "settings": {
         "title": "Settings",

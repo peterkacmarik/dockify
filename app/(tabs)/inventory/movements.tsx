@@ -2,18 +2,23 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../src/contexts/ThemeContext';
+import { useTheme } from '../../../src/contexts/ThemeContext';
 
-export default function InventoryScreen() {
+export default function MovementsScreen() {
     const { t } = useTranslation();
     const { colors } = useTheme();
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            edges={['bottom']}
+        >
             <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.text }]}>{t('inventory.title')}</Text>
+                <Text style={[styles.title, { color: colors.text }]}>
+                    {t('inventory.movements.title')}
+                </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                    {t('inventory.subtitle')}
+                    {t('inventory.movements.subtitle')}
                 </Text>
             </View>
         </SafeAreaView>

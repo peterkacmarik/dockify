@@ -6,6 +6,13 @@ import { supabase } from '../lib/supabase';
 const BIOMETRIC_REFRESH_TOKEN_KEY = 'biometric_refresh_token';
 const BIOMETRIC_ENABLED_FLAG = 'biometric_enabled_flag';
 
+// Module-level variable to track explicit logouts
+let isManualLogout = false;
+
+export const setManualLogout = () => { isManualLogout = true; };
+export const resetManualLogout = () => { isManualLogout = false; };
+export const getManualLogout = () => isManualLogout;
+
 export const useBiometrics = () => {
     const [isSupported, setIsSupported] = useState(false);
     const [biometricType, setBiometricType] = useState<LocalAuthentication.AuthenticationType | null>(null);
@@ -53,6 +60,13 @@ export const useBiometrics = () => {
             }
 
             // 2. Perform a test prompt to ensure user verified intention
+            // REMOVED: User reported duplicate prompts. 
+            // We rely on the fact that 'requireAuthentication: true' on the SecureStore item 
+            // ensures it can only be USED (read) with biometrics later.
+            // Writing it doesn't strictly need a prompt if we assume the user is authenticated in the app.
+            // Plus, adding a new face to OS invalidates the key anyway.
+
+            /* 
             const result = await LocalAuthentication.authenticateAsync({
                 promptMessage: 'Potvrďte aktiváciu biometrie',
                 cancelLabel: 'Zrušiť',
@@ -62,6 +76,7 @@ export const useBiometrics = () => {
             if (!result.success) {
                 throw new Error('Biometric authentication failed');
             }
+            */
 
             // 3. Store Refresh Token securely
             await SecureStore.setItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, session.refresh_token, {

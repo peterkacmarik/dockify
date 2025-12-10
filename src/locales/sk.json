@@ -82,8 +82,35 @@
         "subtitle": "Priradenie dielov a paletizácia."
     },
     "inventory": {
-        "title": "Modul skladu",
-        "subtitle": "Úrovne zásob a cross-dock logika."
+        "title": "Sklad",
+        "subtitle": "Správa skladu a zásob",
+        "tiles": {
+            "products": "Zoznam produktov",
+            "scan": "Scan",
+            "movements": "Pohyby",
+            "lowStock": "Nízke zásoby",
+            "settings": "Nastavenia"
+        },
+        "products": {
+            "title": "Zoznam produktov",
+            "subtitle": "Prehľad všetkých produktov v sklade"
+        },
+        "scan": {
+            "title": "Scan",
+            "subtitle": "Skenovanie produktov a čiarových kódov"
+        },
+        "movements": {
+            "title": "Pohyby",
+            "subtitle": "História pohybov tovaru"
+        },
+        "lowStock": {
+            "title": "Nízke zásoby",
+            "subtitle": "Produkty s nízkym stavom zásob"
+        },
+        "warehouseSettings": {
+            "title": "Nastavenia skladu",
+            "subtitle": "Konfigurácia skladu a zásob"
+        }
     },
     "settings": {
         "title": "Nastavenia",

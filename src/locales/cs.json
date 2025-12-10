@@ -82,8 +82,35 @@
         "subtitle": "Přiřazení dílů a paletizace."
     },
     "inventory": {
-        "title": "Modul skladu",
-        "subtitle": "Úrovně zásob a cross-dock logika."
+        "title": "Sklad",
+        "subtitle": "Správa skladu a zásob",
+        "tiles": {
+            "products": "Seznam produktů",
+            "scan": "Scan",
+            "movements": "Pohyby",
+            "lowStock": "Nízké zásoby",
+            "settings": "Nastavení"
+        },
+        "products": {
+            "title": "Seznam produktů",
+            "subtitle": "Přehled všech produktů ve skladu"
+        },
+        "scan": {
+            "title": "Scan",
+            "subtitle": "Skenování produktů a čárových kódů"
+        },
+        "movements": {
+            "title": "Pohyby",
+            "subtitle": "Historie pohybů zboží"
+        },
+        "lowStock": {
+            "title": "Nízké zásoby",
+            "subtitle": "Produkty s nízkým stavem zásob"
+        },
+        "warehouseSettings": {
+            "title": "Nastavení skladu",
+            "subtitle": "Konfigurace skladu a zásob"
+        }
     },
     "settings": {
         "title": "Nastavení",
