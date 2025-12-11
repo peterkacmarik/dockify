@@ -1,4 +1,4 @@
-import { ChevronDown, Languages, LogOut, Moon, Sun, Fingerprint } from 'lucide-react-native';
+import { ChevronDown, Languages, LogOut, Moon, Sun } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { changeLanguage } from '../../src/lib/i18n';
 import { supabase } from '../../src/lib/supabase';
-import { useBiometrics } from '../../src/hooks/useBiometrics';
 
 const LANGUAGES = [
     { code: 'en', name: 'English', nativeName: 'English' },
@@ -20,10 +19,6 @@ export default function SettingsScreen() {
     const isDark = theme === 'dark';
     const [languageModalVisible, setLanguageModalVisible] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-    // Biometric state
-    const { isSupported, isBiometricEnabled, enableBiometrics, disableBiometrics } = useBiometrics();
-    const [enablingBiometrics, setEnablingBiometrics] = useState(false);
 
     const currentLanguage = LANGUAGES.find(lang => lang.code === i18n.language) || LANGUAGES[1];
 
@@ -44,6 +39,7 @@ export default function SettingsScreen() {
                     onPress: async () => {
                         try {
                             setIsLoggingOut(true);
+
                             const { error } = await supabase.auth.signOut();
                             if (error) throw error;
                             // Navigation is handled by auth state listener in _layout
@@ -62,62 +58,10 @@ export default function SettingsScreen() {
         setLanguageModalVisible(false);
     };
 
-    const handleBiometricToggle = async (value: boolean) => {
-        if (value) {
-            setEnablingBiometrics(true);
-            try {
-                // Password is no longer needed, we use the active session
-                await enableBiometrics();
-                Alert.alert('Success', 'Biometric login enabled');
-            } catch (error: any) {
-                // User cancelled or error
-                if (error?.message?.includes('User cancelled')) {
-                    // don't alert
-                } else {
-                    Alert.alert('Error', error.message || 'Failed to enable biometrics');
-                }
-            } finally {
-                setEnablingBiometrics(false);
-            }
-        } else {
-            try {
-                await disableBiometrics();
-            } catch (error) {
-                Alert.alert('Error', 'Failed to disable biometrics');
-            }
-        }
-    };
-
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.content}>
                 <Text style={[styles.header, { color: colors.text }]}>{t('settings.title')}</Text>
-
-                {/* Biometric Toggle Card */}
-                <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, !isSupported && { opacity: 0.7 }]}>
-                    <View style={styles.cardRow}>
-                        <View style={styles.cardLeft}>
-                            <Fingerprint size={24} color={isSupported ? colors.primary : colors.textSecondary} />
-                            <View style={styles.cardText}>
-                                <Text style={[styles.cardTitle, { color: colors.text }]}>
-                                    {t('settings.biometricLogin', 'Biometric Login')}
-                                </Text>
-                                <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                                    {isSupported
-                                        ? t('settings.biometricDescription', 'Use fingerprint/face ID to log in')
-                                        : t('settings.biometricNotAvailable', 'Biometrics not available or not enrolled')}
-                                </Text>
-                            </View>
-                        </View>
-                        <Switch
-                            value={isBiometricEnabled && isSupported}
-                            onValueChange={handleBiometricToggle}
-                            trackColor={{ false: '#D1D5DB', true: colors.primary }}
-                            thumbColor="#FFFFFF"
-                            disabled={!isSupported}
-                        />
-                    </View>
-                </View>
 
                 {/* Theme Toggle Card */}
                 <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>

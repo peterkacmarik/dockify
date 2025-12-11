@@ -13,18 +13,6 @@ const LargeSecureStore = {
             return AsyncStorage.getItem(key);
         }
 
-        // BLOCKER: If biometrics are enabled, we do NOT return the session automatically.
-        // This forces the user to the Login screen, where we can prompt for Biometrics.
-        try {
-            const biometricEnabled = await SecureStore.getItemAsync('biometric_enabled_flag');
-            if (biometricEnabled === 'true' && key.includes(' supabase-auth-token')) {
-                console.log('[Auth] Biometrics active - hiding session to force prompt.');
-                return null;
-            }
-        } catch (e) {
-            // ignore error
-        }
-
         const value = await SecureStore.getItemAsync(key);
         if (!value) return null;
 

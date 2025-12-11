@@ -169,10 +169,6 @@ export default function OrderIntakeScreen() {
     const handleConfirmImport = () => {
         const validation = validateBatch(finalItems);
 
-        if (validation.duplicates.length > 0) {
-            Alert.alert(`Upozornenie: Duplicitné SKU: ${validation.duplicates.join(', ')}`);
-        }
-
         if (validation.invalidItems.length > 0) {
             const errors: Record<number, string[]> = {};
             validation.invalidItems.forEach(({ index, errors: itemErrors }) => {
@@ -190,7 +186,7 @@ export default function OrderIntakeScreen() {
         try {
             setLoading(true);
             await exportToExcel(finalItems);
-            Alert.alert('Success', 'Excel súbor vyexportovaný!');
+
         } catch (error) {
             console.error('Export error:', error);
             Alert.alert('Chyba', 'Chyba pri exporte do Excelu');
@@ -269,7 +265,7 @@ export default function OrderIntakeScreen() {
 
             {/* Custom paddingTop - upravte hodnotu podľa potreby (napr. 8, 12, 16) */}
             <View style={[styles.header, { paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                <Text style={[styles.screenTitle, { color: colors.text }]}>{t('intake.title')}</Text>
+                <Text style={[styles.screenTitle, { color: colors.text }]}>Spracovanie objednávok</Text>
                 <TouchableOpacity onPress={() => router.push('/intake-settings')} style={{ padding: 8 }}>
                     <Ionicons name="settings-outline" size={24} color={colors.text} />
                 </TouchableOpacity>

@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { Platform } from 'react-native';
 import { useTheme } from '../../src/contexts/ThemeContext';
 
-import { BiometricPrompt } from '../../src/components/auth/BiometricPrompt';
 
 export default function TabLayout() {
   const { t } = useTranslation();
@@ -15,16 +14,11 @@ export default function TabLayout() {
 
   return (
     <>
-      <BiometricPrompt />
       <Tabs
         screenOptions={{
-          headerShown: true,
+          headerShown: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
-          headerStyle: {
-            backgroundColor: colors.card,
-          },
-          headerTintColor: colors.text,
           headerShadowVisible: false,
           tabBarStyle: {
             backgroundColor: colors.card,
@@ -45,12 +39,7 @@ export default function TabLayout() {
             href: null,
           }}
         />
-        <Tabs.Screen
-          name="processing"
-          options={{
-            href: null,
-          }}
-        />
+
         <Tabs.Screen
           name="inventory"
           options={{

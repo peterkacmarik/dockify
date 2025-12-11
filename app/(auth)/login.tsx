@@ -14,21 +14,12 @@ import { Input } from '../../src/components/ui/Input';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { supabase } from '../../src/lib/supabase';
 import { performGoogleLogin } from '../../src/lib/oauth';
-import { useBiometrics } from '../../src/hooks/useBiometrics';
 
 export default function LoginScreen() {
     const { t } = useTranslation();
     const { colors, theme } = useTheme();
     const isDark = theme === 'dark';
     const [loading, setLoading] = useState(false);
-    const { isSupported, isBiometricEnabled, loginWithBiometrics } = useBiometrics();
-
-    // Auto-trigger biometrics if enabled
-    React.useEffect(() => {
-        if (isSupported && isBiometricEnabled) {
-            onBiometricLogin();
-        }
-    }, [isSupported, isBiometricEnabled]);
 
     // Validation Schema with translations
     const loginSchema = z.object({
@@ -76,16 +67,6 @@ export default function LoginScreen() {
             }
         }
         setLoading(false);
-    };
-
-    const onBiometricLogin = async () => {
-        setLoading(true);
-        const success = await loginWithBiometrics();
-        if (success) {
-            router.replace('/');
-        } else {
-            setLoading(false);
-        }
     };
 
     const gradientColors = isDark
@@ -179,16 +160,6 @@ export default function LoginScreen() {
                                     onPress={onGoogleSignIn}
                                     style={{ borderColor: colors.border || '#E5E7EB' }}
                                 />
-
-                                {isSupported && isBiometricEnabled && (
-                                    <Button
-                                        title={t('auth.signInWithBiometrics', 'Sign in with Biometrics')}
-                                        variant="outline"
-                                        icon={<Fingerprint size={20} color={isDark ? '#FFF' : '#374151'} />}
-                                        onPress={onBiometricLogin}
-                                        style={{ marginTop: 16, borderColor: colors.border || '#E5E7EB' }}
-                                    />
-                                )}
                             </View>
                         </View>
 
